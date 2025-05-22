@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Caminho para a imagem de satélite (substitua pelo caminho correto da sua imagem)
-image_path = r"C:\Projeto_ProgParalela\imagens_setelites\imagem6.jpeg"
+image_path = r"C:\Projeto_ProgParalela2\imagens_satelites\imagem6.jpeg"
 
 # Carregar a imagem
 img = cv2.imread(image_path)
