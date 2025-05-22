@@ -6,7 +6,7 @@ import os
 # Carregar a imagem de satélite (substitua pelo caminho da sua imagem)
 #image_path = os.path.join(os.getcwd(),'imagens_satelites','imagem1.jpg')  # Caminho para sua imagem
 
-image_path = r"C:\Projeto_ProgParalela\imagens_satelites\imagem1.jpg"
+image_path = r"C:\Projeto_ProgParalela2\imagens_satelites\imagem6.jpeg"
 
 print(image_path)
 
@@ -16,10 +16,10 @@ img = cv2.imread(image_path)
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 # Aplicar o filtro de bordas Canny
-#edges = cv2.Canny(gray, 100, 200)
+edges = cv2.Canny(gray, 100, 255)
 
 # Aplicar threshold (limiarização) para identificar áreas que podem ser estradas
-_, edges = cv2.threshold(gray, 125, 255, cv2.THRESH_BINARY)
+#_, edges = cv2.threshold(gray, 125, 255, cv2.THRESH_BINARY)
 
 # Mostrar a imagem original e a detecção de bordas
 plt.figure(figsize=(10, 5))
