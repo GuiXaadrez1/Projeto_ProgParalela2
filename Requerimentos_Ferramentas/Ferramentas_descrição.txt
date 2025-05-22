@@ -1,0 +1,137 @@
+1. Processamento de Imagens
+
+   - OpenCV: Biblioteca para processamento de imagens com funcionalidades como detecção de bordas e segmentação.
+     Instalação: pip install opencv-python
+     - tem suporte para ler arquivo tif
+
+     - O pacote opencv-python-headless geralmente tem melhor suporte a formatos como .tif.
+     -pip uninstall opencv-python
+     -pip install opencv-python-headless
+
+   - Pillow (PIL): Biblioteca para manipulação de imagens (redimensionamento, corte, etc.).
+     Instalação: pip install pillow
+
+   - Scikit-image: Biblioteca para filtros, segmentação e transformações de imagem.
+     Instalação: pip install scikit-image
+
+2. Aprendizado de Máquina (Machine Learning)
+
+   - TensorFlow / Keras: Frameworks para aprendizado profundo, usados para treinamento de modelos de segmentação semântica.
+     Instalação: pip install tensorflow
+   - PyTorch: Framework de aprendizado profundo com boa implementação para segmentação de imagens.
+     Instalação: pip install torch torchvision
+
+3. Segmentação de Imagens
+
+   - U-Net: Arquitetura de rede neural para segmentação semântica, muito usada em imagens de satélite.
+   - DeepLabV3 (TensorFlow): Outra arquitetura de segmentação semântica avançada para imagens de satélite.
+     Instalação: pip install tensorflow
+
+4. Dados Geoespaciais
+
+   - Rasterio: Biblioteca para trabalhar com dados geoespaciais raster, como imagens de satélite.
+     Instalação: pip install rasterio
+   
+   - Geopandas: Biblioteca para manipulação de dados geoespaciais vetoriais (ex.: shapefiles).
+     Instalação: pip install geopandas
+
+5. Modelos Pré-treinados
+
+   - Google Earth Engine: Plataforma para análise de dados geoespaciais e imagens de satélite.
+   - Kaggle: Repositório com competições e datasets relacionados a imagens de satélite e segmentação.
+
+
+
+
+
+
+
+
+ESPEFICIÇAÕES! 
+
+🔍 Objetivo
+Desenvolver um algoritmo que lê imagens de satélite e identifica automaticamente estradas. Para isso, você precisará combinar processamento de imagens, modelos de segmentação semântica e eventualmente dados geoespaciais. Abaixo estão as bibliotecas recomendadas por categoria, com seus propósitos e links de instalação.
+
+1. 🧪 Processamento de Imagens (pré-processamento e manipulação)
+Estas bibliotecas ajudam a preparar a imagem para ser usada em um modelo de machine learning:
+
+OpenCV
+Usado para operações clássicas de visão computacional, como:
+
+Detecção de bordas (Canny)
+
+Filtros (blur, sharpening)
+
+Transformações geométricas
+📦 pip install opencv-python
+
+Pillow (PIL)
+Foco em manipulação básica de imagens:
+
+Redimensionar
+
+Cortar
+
+Converter formatos
+📦 pip install pillow
+
+Scikit-image
+Para tarefas de processamento mais específicas:
+
+Segmentação por threshold
+
+Transformações de histograma
+
+Filtros morfológicos
+📦 pip install scikit-image
+
+👉 Dica: Para projetos de detecção de estradas, OpenCV + Scikit-image são bons para pré-processamento e análise exploratória.
+
+2. 🧠 Aprendizado de Máquina e Deep Learning
+Você vai precisar de um modelo para segmentar as estradas nas imagens. Aqui entram os frameworks de deep learning:
+
+TensorFlow / Keras
+Ideal para treinar e usar modelos como U-Net e DeepLab. Tem boa documentação e comunidade.
+📦 pip install tensorflow
+
+PyTorch
+Alternativa mais "pythônica" e flexível que o TensorFlow, usada em pesquisa e produção.
+📦 pip install torch torchvision
+
+👉 Dica: Ambos funcionam bem, mas PyTorch pode ser mais fácil de debugar e adaptar.
+
+3. 🧬 Modelos de Segmentação de Imagens (foco principal do algoritmo)
+Estes são os modelos que realmente aprendem a identificar as estradas:
+
+U-Net
+Modelo popular para segmentação semântica. Simples, eficiente e muito usado em imagens médicas e satélites. Fácil de treinar com TensorFlow ou PyTorch.
+
+DeepLabV3 / V3+
+Arquitetura mais avançada com melhores resultados em segmentações complexas (usado no TensorFlow).
+📦 pip install tensorflow
+
+👉 Dica: Se for treinar do zero ou usar transfer learning, comece com U-Net. Para resultados mais robustos, experimente o DeepLabV3.
+
+4. 🌍 Bibliotecas para Dados Geoespaciais (opcional, se quiser lidar com localização e coordenadas)
+Rasterio
+Trabalha com imagens georreferenciadas (GeoTIFF, etc.). Permite ler os metadados espaciais da imagem.
+📦 pip install rasterio
+
+Geopandas
+Lida com dados vetoriais (shapefiles, GeoJSON). Útil para comparar suas predições com mapas reais.
+📦 pip install geopandas
+
+👉 Dica: Se você quer relacionar os resultados com coordenadas reais ou mapas, use Rasterio + Geopandas.
+
+5. 📦 Modelos Pré-treinados e Dados
+Google Earth Engine
+Plataforma online para trabalhar com grandes volumes de imagens de satélite. Pode usar para baixar dados ou treinar modelos na nuvem.
+
+Kaggle
+Ótimo para encontrar:
+
+Datasets de imagens de satélite com rótulos (ex.: estradas, florestas)
+
+Modelos pré-treinados
+
+Competências com soluções compartilhadas

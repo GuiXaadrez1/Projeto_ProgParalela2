@@ -1,2 +1,2 @@
-# Projeto_ProgParalela2
-Esse projeto visa aplicar soluções de programação para identificar estradas de imagens de satélites
+# Projeto_ProgParalela
+Esse projeto visa utilizar programação paralela para ler imagens de satélites e reconhecer estradas
