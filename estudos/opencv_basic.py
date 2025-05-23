@@ -4,7 +4,6 @@ O objetivo é entender o básico dessa lib para irmos evoluindo
 
 '''
 
-import numpy
 import cv2
 import os  
 
@@ -16,7 +15,7 @@ print(cm_img)
 img = cv2.imread(cm_img)
 
 
-#print(img.shape)
+print(f'propriedades de imagem BGR: {img.shape}')
 
 # Convertendo o espaço de cor da imagem
 
@@ -27,8 +26,16 @@ img_hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV) # BGR para HSV
 img_bgr2 = cv2.cvtColor(img_hsv,cv2.COLOR_HSV2BGR) # HSV para BGR, voltamos ao padrão
 
 
+# adiquirindo a propriedade da imagem cinza
+print(f'Propriedades da imagem cinza: {img_gray.shape}')
+
+# colocando  uma linha vermelha
+cv2.line(img_bgr2, (50, 50), (450, 50), (0, 0, 255), 2)  # Vermelha
+
+# colocando uma anotação na imagem
+cv2.putText(img_bgr2, "OpenCV.........", (180, 450), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+
+
 cv2.imshow("imagem",img_bgr2)
-
-
 cv2.waitKey(0)
 cv2.destroyAllWindows()
