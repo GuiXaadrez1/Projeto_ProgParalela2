@@ -55,6 +55,7 @@ if __name__ == "__main__":
         criamos um array com sublistas de tamanhos diferentes 
         dtype = object adimite que o array tenha tamanhos diferentes
         sem ele o console lança uma mensagem de erro
+        e o dtype modifica o tipo de elemetento para objeto
     '''
 
     # craindo um array de com numpy de tamanhos iguais
