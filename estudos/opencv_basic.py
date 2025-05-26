@@ -14,6 +14,7 @@ print(cm_img)
 # lendo a imagem com o padrão de cor BGR
 img = cv2.imread(cm_img)
 
+#print(img)
 
 print(f'propriedades de imagem BGR: {img.shape}')
 
