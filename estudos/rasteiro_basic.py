@@ -14,7 +14,7 @@ import os
 import rasterio.crs
 import rasterio.transform 
 
-cm_img = os.path.join(os.getcwd(),"imagens_satelites","satelite_img.tif")
+cm_img = os.path.join(os.getcwd(),"imagens_satelites","img_satelite.tif")
 print(cm_img)
 
 
