@@ -138,12 +138,63 @@ def dividir_matriz(qtd_sub_blocos:int, altura_img:int):
         return blocos_rank
         
         '''
+            blocos é uma lista de arrays numpy.
+            
+            enumerate(blocos) gera pares de: (i, bloco) 
 
-    
+            i é o índice na lista de blocos
+
+            bloco é o sub-array correspondente (ex: array([0, 1, 2, 3]))
+            
+            Para cada índice i de bloco, o processo com rank == i % size vai pegar esse bloco.
+
+            Assim, os blocos são distribuídos de forma intercalada (round-robin) entre os processos.
+
+            Essa condição if i % size == rank
+            
+            É a condição de distribuição de blocos entre processos.
+
+            i % size calcula o resto da divisão do índice do bloco pelo número de processos.
+
+            Se o resto for igual ao rank do processo atual, esse processo pega o bloco.
+            
+            Formula matématica para calcular uma divisão de inteiro com resto:
+                    
+                    a = b ⋅ q + r
+
+                Informações:    
+                    
+                    a = dividendo
+                    b = divisor
+                    q = quociente inteiro (parte inteira da divisão)
+                    r = resto
+                
+                condição: 0 ≤ r < b 
+
+                Exemplo: 
+
+                    Vamos encontrar q (quociente inteiro) e r (resto):                    
+                
+                    a = 3
+                    b = 4 
+
+                    
+                    3 = 4.q+r 
+
+                    Sabemos que 4 não cabe nenhuma vez inteira dentro de 3, então:
+                
+                    q = 0 
+
+                    Agora, substituímos:
+
+                    3 = 4 ⋅ 0 + r ⇒ r = 3
+                    
+                    portanto: 
+
+                    3 ÷ 4 ⇒ quociente = 0 , resto = 3
+
         '''
     
-    
-
 def processar_linhas():
     pass
 
