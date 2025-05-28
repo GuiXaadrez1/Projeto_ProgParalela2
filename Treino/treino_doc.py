@@ -91,7 +91,7 @@ def dividir_matriz(qtd_sub_blocos:int, altura_img:int):
     """
     
     n_subblocos = qtd_sub_blocos
-    blocos = sorted(np.array_split(np.arange(altura_img), size * n_subblocos), key=lambda x: x[0])
+    blocos = np.array_split(np.arange(altura_img), size * n_subblocos)
     '''
         basicamente dividimos o a nosso array de 1D gerada com a função arange do Numpy com base na altura (linhas)
         pela quantidade de sub-blocos vezes a quantidade de processos do nosso comunicador Afim de obter
@@ -413,18 +413,109 @@ def processar_linhas_img(blocos_rank, img_largura, banda_img, n_subblocos, camin
        
         # Recebe os blocos dos outros ranks
         for src_rank in range(1, size):
+
+            '''
+            
+            O laço vai percorrer os outros processos (que são os trabalhadores).
+
+            size é o número total de processos MPI.
+
+            src_rank vai variar de 1 até size-1, ou seja, percorre todos os processos exceto o mestre (rank 0).
+            
+            '''
             
             blocos_esperados = sum(1 for i in range(size * n_subblocos) if i % size == src_rank)
+
+            '''
+            
+                Aqui, o mestre calcula quantos blocos ele espera receber do processo src_rank.
+
+                O cálculo funciona assim:
+
+                n_subblocos é o número de subblocos em que a imagem foi dividida por processo (uma divisão total é size * n_subblocos blocos).
+
+                O somatório conta quantos índices i no intervalo de 0 até size * n_subblocos - 1 satisfazem a condição i % size == src_rank.
+
+                Isso representa quantos blocos foram atribuídos ao processo com src_rank.
+
+                Exemplo: Se size=4 e n_subblocos=3, temos 4*3=12 blocos no total.
+
+                Para src_rank=1, a condição conta todos i entre 0 e 11 onde i % 4 == 1, ou seja, índices 1, 5, 9 → 3 blocos.
+            
+            
+            '''
             
             for _ in range(blocos_esperados):
+                
                 linha_ini_recv, bloco_recv = comm.recv(source=src_rank, tag=MPI.ANY_TAG)
+               
                 resultados.append((linha_ini_recv, bloco_recv))
+
+
+            '''
+                Agora, para cada bloco que o mestre espera receber daquele processo (blocos_esperados vezes), ele:
+
+                Recebe uma mensagem MPI de src_rank (o processo trabalhador) com comm.recv.
+
+                Essa mensagem contém um par:
+
+                linha_ini_recv: número da linha inicial desse bloco na imagem original.
+
+                bloco_recv: dados do bloco (por exemplo, uma parte da imagem processada).
+
+                Adiciona esse par (linha_ini_recv, bloco_recv) na lista resultados.
+
+                Essa etapa coleta todos os pedaços da imagem processada que os outros processos enviaram.
+            
+            '''
 
         # Ordenar os blocos pelas linhas de origem
         resultados.sort(key=lambda x: x[0])
+
+        '''
+            Depois de receber todos os blocos, o mestre ordena a lista resultados pela linha inicial linha_ini_recv.
+
+            Isso é crucial para montar a imagem final na ordem correta, pois os blocos podem ter chegado fora de ordem.
+        '''
+
         imagem_final = np.vstack([r[1] for r in resultados])
 
+        '''
+
+        Aqui, o mestre empilha verticalmente todos os blocos da imagem na ordem certa para formar a imagem completa.
+
+        np.vstack cria um array maior juntando os blocos um embaixo do outro.
+
+        [r[1] for r in resultados] pega só o bloco de dados de cada par (descarta a linha inicial já que só usou para ordenar).
+
+        O que é o r?
+
+        Aqui, r é uma variável usada no loop da list comprehension [r[1] for r in resultados].
+
+        O resultados é uma lista de tuplas, e cada tupla tem dois elementos:
+
+        r[0] = linha_ini_recv (a linha inicial do bloco na imagem original)
+
+        r[1] = bloco_recv (os dados do bloco, como um array NumPy contendo parte da imagem)
+
+        Então, r representa cada tupla da lista resultados.
+
+        O que está acontecendo?
+  
+        A expressão [r[1] for r in resultados] cria uma nova lista pegando apenas o segundo elemento de cada tupla — ou seja,
+        só os blocos de dados, descartando a linha inicial que foi usada para ordenar.
+                
+        '''
+
         return imagem_final
+    
+    return None
+
+    '''
+        Para qualquer outro processo que não seja o mestre (rank != 0), retorna None.
+
+        Isso indica que somente o mestre monta e retorna a imagem completa, enquanto os trabalhadores só enviam os pedaços.
+    '''
 
 def salvar_img_processada(caminho_saida, imagem_final):
     # Salvar a imagem completa
@@ -439,45 +530,50 @@ if __name__ == "__main__":
     
     tempo_inicio = time.time()
 
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+    comm = MPI.COMM_WORLD # vai criar o canal de comunicação entre os processos MPI
+    rank = comm.Get_rank() # vai retornar o id do rank
+    size = comm.Get_size() # vai retornar a quantidade total de procesos ranks/trabalhadores no comunicador
     
+    
+    
+    caminho_tif = os.path.join(os.getcwd(),"imagens_satelites","img_satelite2.tif")
+    
+    caminho_saida = os.path.join(os.getcwd(),"imagens_processadas","imagem_final.png")
+
     if size == 1:
-        
-        caminho_tif = os.path.join(os.getcwd(),"imagens_satelites","img_satelite.tif")
-        caminho_saida = os.path.join(os.getcwd(),"imagens_processadas","imagem_final.png")
         
         informacoes = read_tif(caminho_tif=caminho_tif)
         
+        # definindo os indices das informações
         for idx, i in enumerate(informacoes):
+            
             print(f'informação de indice {idx}: {i}')
-        
-        sub_blocos_rank = dividir_matriz(64, altura_img=informacoes[3]) 
+            
+            #print(f'informação de indice {idx}: {type(i)}') # usei para descobrir os tipos de dados que cada informação retorna
 
-        img_processada = processar_linhas_img(
-            sub_blocos_rank[1],
-            informacoes[4],
-            informacoes[2],
-            sub_blocos_rank[0],
-            caminho_tif=caminho_tif
-        )
+        sub_blocos_rank = dividir_matriz(64,altura_img=informacoes[3]) 
 
-        salvar_img_processada(caminho_saida=caminho_saida, imagem_final=img_processada)    
+        img_processada = processar_linhas_img(sub_blocos_rank[1],informacoes[4],informacoes[2],sub_blocos_rank[0], caminho_tif=caminho_tif)
+
+        salvar_img_processada(caminho_saida=caminho_saida, imagem_final= img_processada)    
         
         tempo_final = time.time()
+
         print(f"Tempo de execução: {tempo_final - tempo_inicio:.2f} segundos")
     
     else:
         
         caminho_tif = os.path.join(os.getcwd(), "..", "imagens_satelites", "img_satelite.tif") 
-        caminho_saida2 = os.path.join(os.getcwd(), "..", "imagens_processadas", "imagem_final_mpi.png")   
+
+        caminho_saida2 = os.path.join(os.getcwd(),"..","imagens_processadas","imagem_final_mpi.png")   
         
         informacoes = read_tif(caminho_tif=caminho_tif)
         
-        #print(f'informação de indice {idx}: {type(i)}')  
+       
+            
+            #print(f'informação de indice {idx}: {type(i)}') # usei para descobrir os tipos de dados que cada informação retorna
         
-        sub_blocos_rank = dividir_matriz(64, altura_img=informacoes[3]) 
+        sub_blocos_rank = dividir_matriz(64,altura_img=informacoes[3]) 
 
         img_processada = processar_linhas_img(
             sub_blocos_rank[1],
@@ -487,33 +583,24 @@ if __name__ == "__main__":
             caminho_tif=caminho_tif
         )
 
+        # Reunir partes da imagem processada em todos os ranks
         partes_processadas = comm.gather(img_processada, root=0)
 
-        comm.Barrier()  # opcional, mas recomendável para sincronizar
+        if rank == 0:
+            if img_processada is not None and img_processada.size > 0:
+                salvar_img_processada(caminho_saida=caminho_saida2, imagem_final=img_processada)
+            else:
+                print(f"[Rank {rank}] Erro: imagem processada é vazia ou None! Não será salva.")
 
-    if rank == 0:
-        # Receber resultados dos outros processos
-        for i in range(1, size):
-            for j in range(n_subblocos):
-                bloco = comm.recv(source=i, tag=j)
-                resultados.append(bloco)
+        tempo_final = time.time()
 
-        # Ordena os resultados pelo índice do bloco original, se necessário
-        # resultados.sort(key=lambda x: x[0])  # Apenas se os blocos tiverem índice associado
+        if rank == 0:
+            print(f"Tempo de execucao: {tempo_final - tempo_inicio:.2f} segundos")  
 
-        # Verifica se todos os blocos estão válidos
-        if all(bloco is not None and bloco.size > 0 for bloco in resultados):
-            imagem_final = np.vstack(resultados)
-            imagem_final_pil = Image.fromarray(imagem_final)
-            imagem_final_pil.save('saida.png')
-            print(f"[Rank {rank}] Imagem salva com sucesso.")
-        else:
-            for i, bloco in enumerate(resultados):
-                if bloco is None or bloco.size == 0:
-                    print(f"[Rank {rank}] Bloco {i} está vazio ou None!")
-            print(f"[Rank {rank}] Erro: uma ou mais partes da imagem estão vazias ou None! Não será salva.")
-
-            time.sleep(2)
-
-            tempo_final = time.time()
-            print(f"Tempo de execução MPI: {tempo_final - tempo_inicio:.2f} segundos")
+'''
+        
+             # definindo os indices das informações
+            for idx, i in enumerate(informacoes):
+            
+            print(f'informação de indice {idx}: {i}')       
+'''

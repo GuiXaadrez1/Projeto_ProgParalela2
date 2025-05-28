@@ -536,7 +536,7 @@ if __name__ == "__main__":
     
     
     
-    caminho_tif = os.path.join(os.getcwd(),"imagens_satelites","img_satelite.tif")
+    caminho_tif = os.path.join(os.getcwd(),"imagens_satelites","img_satelite2.tif")
     
     caminho_saida = os.path.join(os.getcwd(),"imagens_processadas","imagem_final.png")
 
@@ -586,16 +586,16 @@ if __name__ == "__main__":
         # Reunir partes da imagem processada em todos os ranks
         partes_processadas = comm.gather(img_processada, root=0)
 
-    if rank == 0:
-        if img_processada is not None and img_processada.size > 0:
-            salvar_img_processada(caminho_saida=caminho_saida2, imagem_final=img_processada)
-        else:
-            print(f"[Rank {rank}] Erro: imagem processada é vazia ou None! Não será salva.")
+        if rank == 0:
+            if img_processada is not None and img_processada.size > 0:
+                salvar_img_processada(caminho_saida=caminho_saida2, imagem_final=img_processada)
+            else:
+                print(f"[Rank {rank}] Erro: imagem processada é vazia ou None! Não será salva.")
 
-    tempo_final = time.time()
+        tempo_final = time.time()
 
-    if rank == 0:
-        print(f"Tempo de execucao: {tempo_final - tempo_inicio:.2f} segundos")  
+        if rank == 0:
+            print(f"Tempo de execucao: {tempo_final - tempo_inicio:.2f} segundos")  
 
 '''
         
