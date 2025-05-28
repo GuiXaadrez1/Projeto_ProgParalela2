@@ -14,6 +14,20 @@ import numpy as np
 
 
 def read_tif(caminho_tif):
+
+    """
+        Parâmetros:
+            caminho_tif (string) - aqui você coloca a string do caminho onde está o seu arquivo.ti
+        
+        Retorna: 
+            Irá retorna uma tupla contendo informações do raster lido como:
+                indice[0] = shape -> tamanho da matriz -> tipo tupla(total_linhas, total_coluna)
+                indice[1] = driver -> formato do arquivo -> tipo string
+                indice[2] = count -> Quantidade de banas -> tipo int
+                indice[3] =  height -> Altura (linhas) da matriz -> int
+                indice[3] =  width -> Altura (coluna) da matriz -> int
+    
+    """
     with rasterio.open(caminho_tif) as raster:
         
         corpo = raster.shape # tamanho da matriz/imagem/array -> tupla (total_linhas,total_coluna)
