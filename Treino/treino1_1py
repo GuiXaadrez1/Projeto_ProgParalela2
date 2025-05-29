@@ -5,6 +5,8 @@
 
 '''
 
+# ESSA É A VERSÃO 1.1 DA VERSÃO 1 DO CÓDIGO
+
 import rasterio 
 from mpi4py import MPI
 import cv2
@@ -47,7 +49,7 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total):
 
             altura_local = fim - inicio
 
-            print(f"[Rank {rank}] Processando linhas {inicio} a {fim} (bloco {bloco_id})")
+            #print(f"[Rank {rank}] Processando linhas {inicio} a {fim} (bloco {bloco_id})")
 
             window = rasterio.windows.Window(col_off=0, row_off=inicio, width=img_largura, height=altura_local)
 
