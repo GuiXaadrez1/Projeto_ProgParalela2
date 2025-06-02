@@ -141,8 +141,8 @@ if __name__ == "__main__":
     size = comm.Get_size()
 
     caminho_tif = os.path.join(os.getcwd(), "..","imagens_satelites", "imagem3.tif")
-    caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary.png")
-    #caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary_inv.png")
+    #caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary.png")
+    caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary_inv.png")
     
     pasta_blocos = os.path.join(os.getcwd(), "..","blocos_tmp") # pasta onde vamos ter parte dos nossos blocos processados
     os.makedirs(pasta_blocos, exist_ok=True)
