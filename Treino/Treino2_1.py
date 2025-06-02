@@ -91,7 +91,7 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
                 img_gray = dados[0]
 
             #_, bordas = cv2.threshold(img_gray, 140, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU) # Esse THRESH_OTSU Detecta limiar automaticamente
-            _, bordas = cv2.threshold(img_gray, 115, 255, cv2.THRESH_BINARY_INV) # PARTE DE INTERESSE FICA PRETA, PARTES A SSEREM IGNORADAS SÃO AS BRANCAS
+            _, bordas = cv2.threshold(img_gray, 120, 255, cv2.THRESH_BINARY_INV) # PARTE DE INTERESSE FICA PRETA, PARTES A SSEREM IGNORADAS SÃO AS BRANCAS
             #_, bordas = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY) # ESSE É O INVERSO DO DE CIMA
 
             nome_bloco = f"bloco_{bloco_id:03d}.png"
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    caminho_tif = os.path.join(os.getcwd(), "..","imagens_satelites", "imagem2.tif")
+    caminho_tif = os.path.join(os.getcwd(), "..","imagens_satelites", "img_satelite2.tif")
     #caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary.png")
     caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary_inv.png")
     
