@@ -86,9 +86,7 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
             else:
                 img_gray = dados[0]
 
-           # _, bordas = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU) # Esse THRESH_OTSU Detecta limiar automaticamente
-            _, bordas = cv2.threshold(img_gray, 150, 255, cv2.THRESH_BINARY_INV) # PARTE DE INTERESSE FICA PRETA, PARTES A SSEREM IGNORADAS SÃO AS BRANCAS
-            #_, bordas = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY) # ESSE É O INVERSO DO DE CIMA
+            _, bordas = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
 
             nome_bloco = f"bloco_{bloco_id:03d}.png"
             caminho_bloco = os.path.join(pasta_blocos, nome_bloco)
@@ -106,6 +104,7 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
                 del img_rgb
             gc.collect()
 
+'''
     if rank == 0:
         for src_rank in range(1, size):
             for bloco_id in range(total_blocos):
@@ -118,7 +117,9 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
         return resultados
 
     return None
+'''
 
+'''
 def juntar_blocos_em_imagem_final(lista_blocos, caminho_saida_final):
     imagens = []
 
@@ -132,6 +133,7 @@ def juntar_blocos_em_imagem_final(lista_blocos, caminho_saida_final):
     imagem_final = np.vstack(imagens)
     cv2.imwrite(caminho_saida_final, imagem_final)
     #print(f"[Rank 0] Imagem final salva em: {caminho_saida_final}")
+'''
 
 if __name__ == "__main__":
     tempo_inicio = time.time()
@@ -140,10 +142,9 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    caminho_tif = os.path.join(os.getcwd(), "..","imagens_satelites", "imagem3.tif")
-    caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary.png")
-    #caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary_inv.png")
-    
+    caminho_tif = os.path.join(os.getcwd(), "..","imagens_satelites", "img_satelite2.tif")
+    caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos.png")
+
     pasta_blocos = os.path.join(os.getcwd(), "..","blocos_tmp") # pasta onde vamos ter parte dos nossos blocos processados
     os.makedirs(pasta_blocos, exist_ok=True)
 
@@ -159,6 +160,12 @@ if __name__ == "__main__":
         pasta_blocos=pasta_blocos
     )
 
+    print(blocos_salvos)
+   
+    tempo_final = time.time()
+    print(f"Tempo de execucao: { tempo_final - tempo_inicio:.2f} segundos")
+
+'''
     if rank == 0:
         if blocos_salvos:
             juntar_blocos_em_imagem_final(blocos_salvos, caminho_saida)
@@ -166,3 +173,4 @@ if __name__ == "__main__":
             print("[Rank 0] Nenhum bloco processado.")
         tempo_final = time.time()
         print(f"Tempo de execucao: {tempo_final - tempo_inicio:.2f} segundos")
+'''
