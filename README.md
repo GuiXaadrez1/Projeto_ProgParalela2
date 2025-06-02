@@ -1,8 +1,8 @@
 # Projeto_ProgParalela
-Introdução 
+1.Introdução 
 Este projeto tem como objetivo principal realizar o processamento eficiente de imagens geográficas ou científicas no formato .tif com quatro canais (RGBA), convertendo-as para imagens em escala de cinza (Grayscale), utilizando as extensões .jpeg ou .png. A solução implementa paralelismo com MPI (Message Passing Interface) para acelerar o processamento em ambientes com múltiplos núcleos ou máquinas, buscando otimização de desempenho e economia de recursos computacionais.
 
-Desafios da Solução
+2.Desafios da Solução
 2.1. Conversão de arquivo .tif RGBA para .jpeg ou .png Gray
 O formato .tif com quatro canais representa imagens com componentes Red, Green, Blue e Alpha (transparência). Para convertê-la para uma imagem de duas dimensões em escala de cinza, é necessário aplicar uma transformação que reduza os canais RGB em um único canal de intensidade.
 
@@ -61,7 +61,7 @@ O resultado é uma máscara de classes, onde cada pixel recebe um rótulo predit
 
 
 
-Ferramentas utilizadas
+3.Ferramentas utilizadas
 3.1. Linguagem
 Python: escolhida pela ampla disponibilidade de bibliotecas de processamento de imagem, facilidade de uso e compatibilidade com bibliotecas MPI via mpi4py.
 
@@ -76,7 +76,7 @@ matplotlib.pyplot: Visualização e salvamento de imagens para depuração
 mpi4py: Comunicação entre processos MPI em python
 
 
-Como funciona o programa?
+4.Como funciona o programa?
 O programa segue um fluxo de execução dividido entre os processos MPI, onde o rank 0 atua como coordenador (mestre) e os demais como trabalhadores (slaves).
 
 Fluxo de Execução:
@@ -101,57 +101,100 @@ Em seguida, utiliza OpenCV (cv2) para abrir a imagem já convertida e aplicar t�
 Conversão para HSV e limiarização
 Limiarização adaptativa ou global
 
-      6. Finalização
+Finalização
 Todos os processos finalizam e liberam os recursos.
 O rank 0 pode exibir ou salvar a imagem segmentada final em um diretório de resultados.
 
 
 Avaliação de Otimização
 5.1. Primeiros resultados
-RANKS   TEMPOS(s)   SPEEDUP   EFICIêNCIA
-2       30.39       0.94         46.0
-4       30.57       0.93         23.3
-5       32.13       0.89         17.8
-6       30.30       0.94         15.6
-7       30.77       0.93         13.3
-8       30.89       0.92         11.5
-9       30.18       0.94         10.5
-10      30.17       0.95          9.5
-11      30.34       0.94          8.6
-12      29.37       0.97          8.1
-13      29.84       0.96          7.4
-14      29.65       0.96          6.8
-15      29.94       0.95          6.3
-16      30.12       0.95          5.9
-17      28.69       0.99          5.8
-18      30.17       0.95          5.3
-19      29.33       0.97          5.1
-20      28.36       1.01          5.0
-21      30.69       0.93          4.4
-22      29.36       0.97          4.4
-23      32.23       0.88          3.8
-24      30.68       0.93          3.9
-25      31.32       0.91          3.6
+|RANKS  | TEMPOS(s) |  SPEEDUP  | EFICIêNCIA |
+|-------|-----------|-----------|------------|
+|2      | 30.39     | 0.94      |   46.0     |
+|4      | 30.57     |  0.93     |  23.3      |
+|5      | 32.13     |  0.89     |   17.      |
+|6      | 30.30     |  0.94     |   15.6     |
+|7      | 30.77     |  0.93     |   13.3     |
+|8      | 30.89     |  0.92     |   11.5     |
+|9      | 30.18     |  0.94     |   10.5     |
+|10     | 30.17     |  0.95     |    9.5     |
+|11     | 30.34     |  0.94     |    8.6     |
+|12     | 29.37     |  0.97     |    8.1     |  
+|13     | 29.84     |  0.96     |    7.4     |
+|14     | 29.65     |  0.96     |    6.8     |
+|15     | 29.94     |  0.95     |    6.3     |
+|16     | 30.12     |  0.95     |    5.9     |
+|17     | 28.69     |  0.99     |    5.8     |
+|18     | 30.17     |  0.95     |    5.3     |
+|19     | 29.33     |  0.97     |    5.1     |
+|20     | 28.36     |  1.01     |    5.0     |
+|21     | 30.69     |  0.93     |    4.4     |
+|22     | 29.36     |  0.97     |    4.4     |
+|23     | 32.23     |  0.88     |    3.8     |
+|24     | 30.68     |  0.93     |    3.9     |
+|25     | 31.32     |  0.91     |    3.6     |
 
 
 5.2. Quadro de comparação
-TIPO DE EXECUÇÃO                    TEMPO(s)            OBSERVAÇÕES
-Serial (1 rank)                      28.51              Tempo mais baixo 
-Paralelizado (2-25 ranks)            28.36-32.23        Tempos > 30s, ficou mais lento
-Melhor tempo paralelo (20 ranks)     28.36              Ganho irrelevante
-Pior tempo paralelo (23 ranks)       32.23              3.72s mais lento que o serial
+|TIPO DE EXECUÇÃO                 | TEMPO(s)        | OBSERVAÇÕES                       |
+|---------------------------------|-----------------|-----------------------------------|
+|Serial (1 rank)                  |28.51            |  Tempo mais baixo                 |
+|Paralelizado (2-25 ranks)        |28.36-32.23      |  Tempos > 30s, ficou mais lento   |
+|Melhor tempo paralelo (20 ranks) |28.36            |  Ganho irrelevante                |
+|Pior tempo paralelo (23 ranks)   |32.23            |  3.72s mais lento que o serial    |
 
 5.3. Conclusão
 O tempo de execução serial foi mais eficiente do que o tempo paralelizado com MPI, ou seja, a estratégia usada para paralelização não está sendo vantajosa para a resolução do problema. 
 
+Localização do código: ./Treino2_1/Treino2_1.py
+Tamanho aproximado: 2,7GB
 
-Resultados Esperados
+6.Anotação dos Testes de tempo de execução - Treino2_1.py
+6.1. Resumo dos tempos de execução
+
+|Execução       |   Tempo(s)  |
+|---------------|-------------|
+|Serial (1 rank)|    38       |
+|2 ranks        |    27       |
+|3 ranks        |    24       |
+|4 ranks        |    22       |
+|5 ranks        |    22       |
+|6 ranks        |    21       |
+|7 ranks        |    20       |
+|8-20 ranks     |    20       |
+
+
+
+6.2. Análise de Desempenho
+Melhoria inicial constante
+Observa-se uma redução significativa no tempo de execução ao aumentar o número de processos de 1 para 4 ranks.
+De 38s (serial) para 22s com 4 ranks - uma melhora de aproximadamente 42%
+Entre 4 e 6 ranks, os ganhos continuam, porém em ritmo menor
+
+Saturação do Desempenho a partir de 7 ranks
+A partir de 7 processos, o tempo estabiliza em 20 segundos, sem apresentar melhorias adicionais até 20 ranks
+Isso indica que o limite útil do paralelismo foi atingido
+Continuar aumentando o número de processos pode inclusive gerar overhead, sem ganho de performance.
+
+Causas Prováveis de Saturação
+Overhead de comunicação MPI: a troca de mensagens entre muitos processos pode impactar negativamente o tempo total
+Gargalo de I/O: vários processos acessando simultaneamente o mesmo arquivo grande gera concorrência e limita o desempenho
+Tamanho dos blocos: com muitos processos, cada um recebe uma fração menor dos dados, e o tempo gasto com leitura, escrita e sincronização passa a dominar a execução.
+
+6.3. Conclusão Prática
+O código treino2_1.py apresenta boa escalabilidade até cerca de 6 ou 7 processos, com ganhos significativos no tempo de execução
+Acima de 7 ranks, o desempenho se estabiliza, o que é típico em aplicações com gargalo de I/O ou com pouca carga computacional por processo
+Configuração recomendada: utilizar entre 6 e 8 ranks, pois proporciona melhor equilíbrio entre desempenho e uso eficiente de recursos computacionais.
+
+
+
+7.Resultados Esperados
 Redução de até 80% no tempo de processamento para imagens grandes (comparado com versão sequencial)
 Conversão precisa das imagens RGBA para Grayscale
 Segmentação clara (quando aplicada)
 Baixo uso de memória RAM (evitando crashes)
 Código modular e de fácil manutenção
 
-Conclusão
+8.Conclusão
 Este projeto mostra a importância de unir processamento paralelo com eficiência computacional em tarefas de manipulação de imagens pesadas. A utilização de MPI via Python, aliada a bibliotecas especializadas como Rasterio e OpenCV, permite alcançar alta performance mesmo em máquinas com recursos limitados
 
