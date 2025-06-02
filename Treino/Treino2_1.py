@@ -19,6 +19,7 @@ def informacoes(caminho_tif):
         return corpo, formato, banda, altura, largura
 
 def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, pasta_blocos):
+    
     resultados = []
     total_blocos = 128 # Define a quantidade de blocos horizontais em que a imagem será dividida para processamento paralelo.
     linhas_por_bloco = altura_total // total_blocos 
@@ -31,7 +32,7 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
         calcula quantas linhas sobram quando a altura da imagem não é divisível exatamente pelo número de blocos.
     '''
     with rasterio.open(caminho_tif) as raster:
-        
+ 
         for bloco_id in range(total_blocos): # Percorre todos os blocos (ex: de 0 a 127, se total_blocos = 128).
 
             if bloco_id % size != rank: # lebrando que 0 operador % é o módulo (ou resto da divisão inteira).
@@ -57,6 +58,9 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
 
             inicio = bloco_id * linhas_por_bloco
             fim = inicio + linhas_por_bloco
+
+            # Timer para o bloco atual
+            #start_block = time.time()
             
             if bloco_id == total_blocos - 1:
                 fim += resto
@@ -86,14 +90,16 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
             else:
                 img_gray = dados[0]
 
-           # _, bordas = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU) # Esse THRESH_OTSU Detecta limiar automaticamente
-            _, bordas = cv2.threshold(img_gray, 150, 255, cv2.THRESH_BINARY_INV) # PARTE DE INTERESSE FICA PRETA, PARTES A SSEREM IGNORADAS SÃO AS BRANCAS
+            #_, bordas = cv2.threshold(img_gray, 140, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU) # Esse THRESH_OTSU Detecta limiar automaticamente
+            _, bordas = cv2.threshold(img_gray, 115, 255, cv2.THRESH_BINARY_INV) # PARTE DE INTERESSE FICA PRETA, PARTES A SSEREM IGNORADAS SÃO AS BRANCAS
             #_, bordas = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY) # ESSE É O INVERSO DO DE CIMA
 
             nome_bloco = f"bloco_{bloco_id:03d}.png"
             caminho_bloco = os.path.join(pasta_blocos, nome_bloco)
             cv2.imwrite(caminho_bloco, bordas)
             #print(f"[Rank {rank}] Bloco {bloco_id} salvo em {caminho_bloco}")
+            #end_block = time.time()
+            #print(f"[Rank {rank}] Tempo de processamento do bloco {bloco_id}: {end_block - start_block:.3f} segundos")
 
             if rank == 0:
                 resultados.append((bloco_id, caminho_bloco))
@@ -140,7 +146,7 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    caminho_tif = os.path.join(os.getcwd(), "..","imagens_satelites", "imagem3.tif")
+    caminho_tif = os.path.join(os.getcwd(), "..","imagens_satelites", "imagem2.tif")
     #caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary.png")
     caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary_inv.png")
     
