@@ -35,6 +35,8 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
  
         for bloco_id in range(total_blocos): # Percorre todos os blocos (ex: de 0 a 127, se total_blocos = 128).
 
+            # Operação MOD
+            
             if bloco_id % size != rank: # lebrando que 0 operador % é o módulo (ou resto da divisão inteira).
                 continue
 
@@ -97,6 +99,7 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
             nome_bloco = f"bloco_{bloco_id:03d}.png"
             caminho_bloco = os.path.join(pasta_blocos, nome_bloco)
             cv2.imwrite(caminho_bloco, bordas)
+            
             #print(f"[Rank {rank}] Bloco {bloco_id} salvo em {caminho_bloco}")
             #end_block = time.time()
             #print(f"[Rank {rank}] Tempo de processamento do bloco {bloco_id}: {end_block - start_block:.3f} segundos")
@@ -108,6 +111,7 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
 
             # Liberar memória
             del dados, img_gray, bordas
+            
             if banda_img >= 3:
                 del img_rgb
             gc.collect()
@@ -126,6 +130,7 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
     return None
 
 def juntar_blocos_em_imagem_final(lista_blocos, caminho_saida_final):
+    
     imagens = []
 
     for _, caminho_img in lista_blocos:
@@ -146,7 +151,7 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    caminho_tif = os.path.join(os.getcwd(), "..","imagens_satelites", "img_satelite2.tif")
+    caminho_tif = os.path.join(os.getcwd(), "..","imagens_convertidas_tif", "imagem1.tif")
     #caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary.png")
     caminho_saida = os.path.join(os.getcwd(), "..","imagens_processadas", "imagem_final_blocos_binary_inv.png")
     
