@@ -1,9 +1,10 @@
 # Projeto_ProgParalela
-1.Introdução 
+## Identificador paralelo de estradas em imagens de satélite
+## 1.Introdução 
 Este projeto tem como objetivo principal realizar o processamento eficiente de imagens geográficas ou científicas no formato .tif com quatro canais (RGBA), convertendo-as para imagens em escala de cinza (Grayscale), utilizando as extensões .jpeg ou .png. A solução implementa paralelismo com MPI (Message Passing Interface) para acelerar o processamento em ambientes com múltiplos núcleos ou máquinas, buscando otimização de desempenho e economia de recursos computacionais.
 
-2.Desafios da Solução
-2.1. Conversão de arquivo .tif RGBA para .jpeg ou .png Gray
+## 2.Desafios da Solução
+### 2.1. Conversão de arquivo .tif RGBA para .jpeg ou .png Gray
 O formato .tif com quatro canais representa imagens com componentes Red, Green, Blue e Alpha (transparência). Para convertê-la para uma imagem de duas dimensões em escala de cinza, é necessário aplicar uma transformação que reduza os canais RGB em um único canal de intensidade.
 
 Solução adotada:
@@ -12,7 +13,7 @@ A função segmentar_imagem() converte os dados lidos para o formato RGB (dados[
 Essa imagem RGB é depois convertida em tensor do TensorFlow e processada por um modelo de segmentação semântica, que retorna uma máscara segmentada (matriz 2D).
 A saída (mascara_segmentacao) é uma imagem em escala de cinza (com classes segmentadas) que é salva em formato .png com cv2.imwrite()
 
-2.2. Divisão de trabalho MPI
+### 2.2. Divisão de trabalho MPI
 O uso da biblioteca MPI permite distribuir o carregamento e processamento da imagem entre vários processos. Esse modelo de paralelismo é especialmente útil para imagens de grande dimensão, otimizando tempo e uso da CPU.
 
 Solução adotada:
@@ -22,7 +23,7 @@ Cada processo MPI (com base no seu rank) é responsável por processar apenas os
 O processo mestre (rank 0) coordena o processo: processa seus próprios blocos e coleta os resultados dos outros processos com comm.recv().
 
 
-2.3. Nível de Complexidade
+### 2.3. Nível de Complexidade
 A solução exige domínio sobre:
 Processamento de imagens multidimensionais
 Programação paralela com MPI
@@ -39,7 +40,7 @@ Tratamento de erros na leitura com try/except.
 Coleta e ordenação dos blocos processados para reconstrução da imagem final.
 
 
-2.4. Otimização do uso de memória RAM
+### 2.4. Otimização do uso de memória RAM
 Durante o processamento de grandes imagens, é fundamental evitar o carregamento de toda a imagem na memória de uma só vez, pois isso pode causar estouro de memória (Out of Memory).
 
 Solução adotada:
@@ -48,7 +49,7 @@ Em vez disso, são usadas janelas de leitura (rasterio.windows.Window) para ler 
 Isso permite um processamento em partes, ideal para imagens grandes.
 Além disso, o uso de np.array_split() com blocos menores (8 vezes o número de processos) evita sobrecarga de RAM mesmo em sistemas com menos recursos.
 
-2.5. Entendimento do problema de segmentação
+### 2.5. Entendimento do problema de segmentação
 Em algumas aplicações, além da conversão para escala de cinza, é necessário segmentar áreas de interesse na imagem. Isso pode ser feito com:
 Espaço de cor HSV: separa cor, saturação e intensidade, útil para destacar regiões específicas.
 Limiarização (Thresholding): converte a imagem em preto e branco com base em um valor de corte, útil para detecção de bordas ou regiões específicas.
@@ -61,11 +62,11 @@ O resultado é uma máscara de classes, onde cada pixel recebe um rótulo predit
 
 
 
-3.Ferramentas utilizadas
-3.1. Linguagem
+## 3.Ferramentas utilizadas
+### 3.1. Linguagem
 Python: escolhida pela ampla disponibilidade de bibliotecas de processamento de imagem, facilidade de uso e compatibilidade com bibliotecas MPI via mpi4py.
 
-3.2. Bibliotecas
+### 3.2. Bibliotecas
 
 rasterio: Leitura de imagens .tif, especialmente com dados georreferenciados
 opencv (cv2): Manipulação de imagens, conversão de formatos, limiarização
@@ -76,7 +77,7 @@ matplotlib.pyplot: Visualização e salvamento de imagens para depuração
 mpi4py: Comunicação entre processos MPI em python
 
 
-4.Como funciona o programa?
+## 4.Como funciona o programa?
 O programa segue um fluxo de execução dividido entre os processos MPI, onde o rank 0 atua como coordenador (mestre) e os demais como trabalhadores (slaves).
 
 Fluxo de Execução:
@@ -106,8 +107,8 @@ Todos os processos finalizam e liberam os recursos.
 O rank 0 pode exibir ou salvar a imagem segmentada final em um diretório de resultados.
 
 
-Avaliação de Otimização
-5.1. Primeiros resultados
+## 5. Avaliação de Otimização
+### 5.1. Primeiros resultados
 |RANKS  | TEMPOS(s) |  SPEEDUP  | EFICIêNCIA |
 |-------|-----------|-----------|------------|
 |2      | 30.39     | 0.94      |   46.0     |
@@ -134,8 +135,11 @@ Avaliação de Otimização
 |24     | 30.68     |  0.93     |    3.9     |
 |25     | 31.32     |  0.91     |    3.6     |
 
+### Gráfico de SpeedUp e Eficiência
+![Speedup e Eficiência](doc/grafico.jpeg)
 
-5.2. Quadro de comparação
+
+### 5.2. Quadro de comparação
 |TIPO DE EXECUÇÃO                 | TEMPO(s)        | OBSERVAÇÕES                       |
 |---------------------------------|-----------------|-----------------------------------|
 |Serial (1 rank)                  |28.51            |  Tempo mais baixo                 |
@@ -143,14 +147,14 @@ Avaliação de Otimização
 |Melhor tempo paralelo (20 ranks) |28.36            |  Ganho irrelevante                |
 |Pior tempo paralelo (23 ranks)   |32.23            |  3.72s mais lento que o serial    |
 
-5.3. Conclusão
+### 5.3. Conclusão
 O tempo de execução serial foi mais eficiente do que o tempo paralelizado com MPI, ou seja, a estratégia usada para paralelização não está sendo vantajosa para a resolução do problema. 
 
 Localização do código: ./Treino2_1/Treino2_1.py
 Tamanho aproximado: 2,7GB
 
-6.Anotação dos Testes de tempo de execução - Treino2_1.py
-6.1. Resumo dos tempos de execução
+## 6.Anotação dos Testes de tempo de execução - Treino2_1.py
+### 6.1. Resumo dos tempos de execução
 
 |Execução       |   Tempo(s)  |
 |---------------|-------------|
@@ -164,8 +168,36 @@ Tamanho aproximado: 2,7GB
 |8-20 ranks     |    20       |
 
 
+### 6.2. Tabela de SpeedUp e Eficiência
+| Ranks | Tempo (s) | Speedup | Eficiência (%) |
+| ----- | --------- | ------- | -------------- |
+| 1     | 38        | 1.00    | 100.0          |
+| 2     | 27        | 1.41    | 70.4           |
+| 3     | 24        | 1.58    | 52.7           |
+| 4     | 22        | 1.73    | 43.3           |
+| 5     | 22        | 1.73    | 34.6           |
+| 6     | 21        | 1.81    | 30.2           |
+| 7     | 20        | 1.90    | 27.1           |
+| 8     | 20        | 1.90    | 23.8           |
+| 9     | 20        | 1.90    | 21.1           |
+| 10    | 20        | 1.90    | 19.0           |
+| 11    | 20        | 1.90    | 17.3           |
+| 12    | 20        | 1.90    | 15.8           |
+| 13    | 20        | 1.90    | 14.6           |
+| 14    | 20        | 1.90    | 13.6           |
+| 15    | 20        | 1.90    | 12.7           |
+| 16    | 20        | 1.90    | 11.9           |
+| 17    | 20        | 1.90    | 11.2           |
+| 18    | 20        | 1.90    | 10.6           |
+| 19    | 20        | 1.90    | 10.0           |
+| 20    | 20        | 1.90    | 9.5            |
 
-6.2. Análise de Desempenho
+
+### Gráfico de SpeedUp e Eficiência
+![Speedup e Eficiência](doc/grafico1.jpeg)
+
+
+### 6.3. Análise de Desempenho
 Melhoria inicial constante
 Observa-se uma redução significativa no tempo de execução ao aumentar o número de processos de 1 para 4 ranks.
 De 38s (serial) para 22s com 4 ranks - uma melhora de aproximadamente 42%
@@ -181,20 +213,19 @@ Overhead de comunicação MPI: a troca de mensagens entre muitos processos pode 
 Gargalo de I/O: vários processos acessando simultaneamente o mesmo arquivo grande gera concorrência e limita o desempenho
 Tamanho dos blocos: com muitos processos, cada um recebe uma fração menor dos dados, e o tempo gasto com leitura, escrita e sincronização passa a dominar a execução.
 
-6.3. Conclusão Prática
+### 6.4. Conclusão Prática
 O código treino2_1.py apresenta boa escalabilidade até cerca de 6 ou 7 processos, com ganhos significativos no tempo de execução
 Acima de 7 ranks, o desempenho se estabiliza, o que é típico em aplicações com gargalo de I/O ou com pouca carga computacional por processo
 Configuração recomendada: utilizar entre 6 e 8 ranks, pois proporciona melhor equilíbrio entre desempenho e uso eficiente de recursos computacionais.
 
 
-
-7.Resultados Esperados
+## 7.Resultados Esperados
 Redução de até 80% no tempo de processamento para imagens grandes (comparado com versão sequencial)
 Conversão precisa das imagens RGBA para Grayscale
 Segmentação clara (quando aplicada)
 Baixo uso de memória RAM (evitando crashes)
 Código modular e de fácil manutenção
 
-8.Conclusão
+## 8.Conclusão
 Este projeto mostra a importância de unir processamento paralelo com eficiência computacional em tarefas de manipulação de imagens pesadas. A utilização de MPI via Python, aliada a bibliotecas especializadas como Rasterio e OpenCV, permite alcançar alta performance mesmo em máquinas com recursos limitados
 
