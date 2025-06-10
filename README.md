@@ -4,23 +4,26 @@
 Este projeto tem como objetivo principal realizar o processamento eficiente de imagens geográficas ou científicas no formato .tif com quatro canais (RGBA), convertendo-as para imagens em escala de cinza (Grayscale), utilizando as extensões .jpeg ou .png. A solução implementa paralelismo com MPI (Message Passing Interface) para acelerar o processamento em ambientes com múltiplos núcleos ou máquinas, buscando otimização de desempenho e economia de recursos computacionais.
 
 ## 2.Desafios da Solução
-### 2.1. Conversão de arquivo .tif RGBA para .jpeg ou .png Gray
+### 2.1. Conversão de arquivo .tif para GrayScale
 O formato .tif com quatro canais representa imagens com componentes Red, Green, Blue e Alpha (transparência). Para convertê-la para uma imagem de duas dimensões em escala de cinza, é necessário aplicar uma transformação que reduza os canais RGB em um único canal de intensidade.
 
 Solução adotada:
-O código utiliza a biblioteca Rasterio para abrir imagens .tif com múltiplos canais (neste caso, até 4).
-A função segmentar_imagem() converte os dados lidos para o formato RGB (dados[:3]), descartando o canal Alpha se houver.
-Essa imagem RGB é depois convertida em tensor do TensorFlow e processada por um modelo de segmentação semântica, que retorna uma máscara segmentada (matriz 2D).
-A saída (mascara_segmentacao) é uma imagem em escala de cinza (com classes segmentadas) que é salva em formato .png com cv2.imwrite()
+A função processar_linhas_img() converte os dados RGB (bandas 1 a 3) para escala de cinza utilizando OpenCV.
+Em seguida, é aplicada uma limiarização binária inversa (cv2.THRESH_BINARY_INV) com valor de corte 120.
+O objetivo é destacar possíveis traços como estradas, realçando áreas escuras na imagem.
+A saída de cada processo MPI é um conjunto de blocos salvos como imagens .png.
+
 
 ### 2.2. Divisão de trabalho MPI
 O uso da biblioteca MPI permite distribuir o carregamento e processamento da imagem entre vários processos. Esse modelo de paralelismo é especialmente útil para imagens de grande dimensão, otimizando tempo e uso da CPU.
 
 Solução adotada:
 O código inicializa o MPI com mpi4py, e cada processo recebe um rank.
-A imagem é dividida em blocos horizontais por linha (np.array_split).
-Cada processo MPI (com base no seu rank) é responsável por processar apenas os blocos que lhe pertencem.
-O processo mestre (rank 0) coordena o processo: processa seus próprios blocos e coleta os resultados dos outros processos com comm.recv().
+Solução adotada:
+A imagem é dividida em 128 blocos horizontais de mesmo tamanho, utilizando uma janela (rasterio.windows.Window) para leitura parcial.
+Cada processo MPI verifica quais blocos são de sua responsabilidade com base na fórmula bloco_id % size == rank.
+Com isso, evita-se comunicação excessiva entre processos e cada rank trabalha de forma autônoma.
+
 
 
 ### 2.3. Nível de Complexidade
@@ -55,10 +58,18 @@ Espaço de cor HSV: separa cor, saturação e intensidade, útil para destacar r
 Limiarização (Thresholding): converte a imagem em preto e branco com base em um valor de corte, útil para detecção de bordas ou regiões específicas.
 
 Solução adotada:
-Neste código, a segmentação não utiliza HSV ou limiarização manual, mas           sim uma abordagem muito mais sofisticada com Deep Learning:
-Utiliza o modelo DeepLabV3+, carregado via tensorflow_hub.
-Esse modelo realiza segmentação semântica automática, reconhecendo e classificando regiões da imagem de forma muito mais precisa que métodos tradicionais como HSV ou thresholding.
-O resultado é uma máscara de classes, onde cada pixel recebe um rótulo predito
+A segmentação é realizada utilizando a técnica de limiarização binária inversa (cv2.THRESH_BINARY_INV), aplicada à imagem em escala de cinza.
+Esse método é leve, rápido e eficaz para destacar bordas e áreas relevantes como estradas em imagens de satélite.
+Não há uso de aprendizado de máquina na versão final.
+
+### 2.6. Redução Distribuída da Imagem Final
+Desafio:
+Em sistemas distribuídos com MPI, a junção dos resultados processados por diferentes ranks em um único arquivo final é um desafio importante.
+
+Solução adotada:
+Cada processo salva os blocos de imagem que processou localmente.
+Após o processamento, cada rank envia seus blocos (id + imagem) para outros ranks seguindo uma estratégia de redução binária.
+O rank 0 realiza a concatenação vertical (np.vstack) dos blocos em ordem crescente de ID e salva a imagem final com cv2.imwrite.
 
 
 
@@ -78,37 +89,30 @@ mpi4py: Comunicação entre processos MPI em python
 
 
 ## 4.Como funciona o programa?
-O programa segue um fluxo de execução dividido entre os processos MPI, onde o rank 0 atua como coordenador (mestre) e os demais como trabalhadores (slaves).
-
 Fluxo de Execução:
-Inicialização com MPI
-O programa inicia com mpi4py, detectando o número de processos disponíveis e atribuindo um rank a cada um deles.
 
-Leitura da Imagem (Rank 0)
-O rank 0 utiliza a biblioteca rasterio para abrir a imagem .tif.
-Ele extrai as informações relevantes da imagem: largura, altura, número de bandas, dados dos canais (RGBA), etc.
+1. Inicialização com MPI:
+   O programa inicia com mpi4py, detecta o número de processos e atribui um rank a cada um.
 
-Distribuição dos Dados
-O rank 0 divide a imagem em partes (ex: faixas horizontais) e envia os blocos e metadados para os demais ranks via comm.send.
+2. Leitura da imagem (todos os ranks):
+   Cada processo lê a imagem .tif em blocos parciais (com rasterio.windows.Window), conforme seu rank.
 
-Processamento Paralelo
-Cada rank trabalhador (rank > 0) recebe sua parte da imagem e:
-Converte a parte recebida de RGBA para escala de cinza (Grayscale)
-Salva essa parte como uma imagem .jpeg ou .png
+3. Processamento paralelo:
+   Cada processo MPI:
+   - Converte sua parte para escala de cinza com OpenCV.
+   - Aplica limiarização binária inversa.
+   - Salva os blocos como imagens .png.
 
-Pós-processamento (Rank 0)
-O rank 0 também pode salvar sua parte da imagem.
-Em seguida, utiliza OpenCV (cv2) para abrir a imagem já convertida e aplicar técnicas de segmentação como:
-Conversão para HSV e limiarização
-Limiarização adaptativa ou global
+4. Redução distribuída:
+   Utilizando uma estratégia de redução binária entre pares (rank ^ etapa), todos os blocos processados são enviados e reunidos no rank 0.
 
-Finalização
-Todos os processos finalizam e liberam os recursos.
-O rank 0 pode exibir ou salvar a imagem segmentada final em um diretório de resultados.
+5. Montagem da imagem final:
+   O rank 0 ordena os blocos por ID, concatena verticalmente e salva a imagem final com OpenCV.
+
 
 
 ## 5. Avaliação de Otimização
-### 5.1. Primeiros resultados
+### 5.1. Anotação dos Testes de tempo de execução - Producao1.py
 |RANKS  | TEMPOS(s) |  SPEEDUP  | EFICIêNCIA |
 |-------|-----------|-----------|------------|
 |2      | 30.39     | 0.94      |   46.0     |
@@ -153,7 +157,7 @@ O tempo de execução serial foi mais eficiente do que o tempo paralelizado com 
 Localização do código: ./Treino2_1/Treino2_1.py
 Tamanho aproximado: 2,7GB
 
-## 6.Anotação dos Testes de tempo de execução - Treino2_1.py
+## 6.Anotação dos Testes de tempo de execução - Producao2.py
 ### 6.1. Resumo dos tempos de execução
 
 |Execução       |   Tempo(s)  |
@@ -218,14 +222,77 @@ O código treino2_1.py apresenta boa escalabilidade até cerca de 6 ou 7 process
 Acima de 7 ranks, o desempenho se estabiliza, o que é típico em aplicações com gargalo de I/O ou com pouca carga computacional por processo
 Configuração recomendada: utilizar entre 6 e 8 ranks, pois proporciona melhor equilíbrio entre desempenho e uso eficiente de recursos computacionais.
 
+## 7. Anotação dos Testes de tempo de execução - Producao3.py (Código Final)
+## Tempos Médios de Execução
+| Número de Ranks | Tempos (s) — Execuções                                               | Média (s) |
+| --------------- | -------------------------------------------------------------------- | --------- |
+| 1 (Serial)      | 38.13, 38.48, 38.11, 38.00, 37.84, 37.93, 38.48, 36.06, 38.67, 37.81 | **37.95** |
+| 2               | 25.23, 24.66, 24.67, 24.62, 24.48, 25.66, 24.81, 24.79, 24.95, 24.51 | **24.84** |
+| 3               | 20.51, 20.44, 20.71, 19.97, 20.24, 20.13, 20.26, 20.29, 20.22, 21.03 | **20.38** |
+| 4               | 19.29, 18.68, 19.63, 18.78, 19.24, 20.17, 19.83, 19.23, 19.49, 18.78 | **19.31** |
+| 5               | 17.75, 17.91, 17.46, 17.95, 17.28, 17.63, 17.53, 18.02, 18.16, 17.84 | **17.55** |
+| 6               | 17.03, 16.94, 16.77, 17.19, 17.35, 17.19, 17.43, 17.49, 17.27, 17.32 | **17.30** |
+| 7               | 16.75, 16.64, 16.99, 17.07, 16.50, 16.78, 17.41, 17.07, 16.94, 17.15 | **16.93** |
+| 8               | 17.16, 19.75, 17.26, 17.30, 18.42, 17.11, 16.98, 16.85, 17.70, 18.02 | **17.56** |
+| 10              | 17.28, 17.40, 29.25, 23.83, 17.17, 17.65, 16.76, 17.53, 17.06, 17.48 | **17.34** |
+| 15              | 18.29, 17.72, 17.81, 18.26, 17.49, 17.45, 17.56, 17.98, 17.51, 17.64 | **17.57** |
+| 18              | 18.53, 18.11, 18.70, 17.92, 18.18, 17.76, 18.19, 19.02, 18.00, 17.59 | **17.90** |
+| 20              | 18.41, 17.01, 17.88, 18.18, 17.57, 17.62, 18.11, 17.80, 17.79, 18.25 | **17.56** |
 
-## 7.Resultados Esperados
+### 7.1. Tabela de SpeedUp e Eficiência
+| Ranks | Tempo Médio (s) | Speedup | Eficiência (%) |
+| ----- | --------------- | ------- | -------------- |
+| 1     | 37.95           | 1.00    | 100.00         |
+| 2     | 24.84           | 1.53    | 76.50          |
+| 3     | 20.38           | 1.86    | 62.00          |
+| 4     | 19.31           | 1.96    | 49.00          |
+| 5     | 17.55           | 2.16    | 43.20          |
+| 6     | 17.30           | 2.19    | 36.50          |
+| 7     | 16.93           | 2.24    | 32.00          |
+| 8     | 17.56           | 2.16    | 27.00          |
+| 10    | 17.34           | 2.19    | 21.90          |
+| 15    | 17.57           | 2.16    | 14.40          |
+| 18    | 17.90           | 2.12    | 11.78          |
+| 20    | 17.56           | 2.16    | 10.80          |
+
+### Gráfico de SpeedUp e Eficiência
+![Speedup e Eficiência](doc/grafico2.jpeg)
+
+### 7.2. Análise de Desempenho
+Observações
+-  O Speedup cresce conforme aumentam os ranks, mas de forma cada vez menos eficiente (lei dos retornos decrescentes).
+- A Eficiência cai à medida que mais processos são usados, indicando sobrecarga de paralelismo ou limites do hardware/software para essa tarefa específica.
+
+Análise por Faixa de Ranks
+- 1 a 4 Ranks (boa escalabilidade):
+    Aceleração significativa do tempo de execução.
+    Eficiência cai de 100% para 49%.
+
+- 5 a 8 Ranks (eficiência em queda):
+    Ganhos em tempo são pequenos.
+    Overhead começa a impactar fortemente a eficiência.
+
+- 10 a 20 Ranks (saturação):
+    Pouca ou nenhuma melhora no tempo.
+    Eficiência inferior a 15%, com desperdício de recursos.
+
+### 7.3. Conclusão
+Os testes com o programa Producao3.py mostram que ele apresenta boa escalabilidade até 4 ou 5 processos, com redução significativa no tempo de execução. A partir desse ponto, os ganhos em desempenho se tornam marginais e a eficiência cai drasticamente, indicando desperdício de recursos. O melhor equilíbrio entre performance e custo computacional ocorre com 3 processos, com um speedup de 1,86 e eficiência de 62%. Acima de 5 processos, o tempo pouco melhora e a eficiência despenca, mostrando que a aplicação atinge seu limite prático de paralelização. Assim, recomenda-se o uso de 3 a 5 processos, conforme o objetivo for eficiência ou redução de tempo.
+
+## 8. O que mudou durante o projeto?
+- A substituição da segmentação com DeepLabV3+ por uma abordagem baseada em thresholding simples com OpenCV;
+- Nova estratégia de divisão de blocos fixos (128 blocos) e distribuição por bloco_id % size;
+- Eliminação de comunicação direta do mestre com os escravos (não há mais comm.send dos blocos);
+- Inclusão de uma etapa de redução distribuída binária para montagem da imagem final;
+
+## 9.Resultados Esperados
 Redução de até 80% no tempo de processamento para imagens grandes (comparado com versão sequencial)
 Conversão precisa das imagens RGBA para Grayscale
 Segmentação clara (quando aplicada)
 Baixo uso de memória RAM (evitando crashes)
 Código modular e de fácil manutenção
 
-## 8.Conclusão
-Este projeto mostra a importância de unir processamento paralelo com eficiência computacional em tarefas de manipulação de imagens pesadas. A utilização de MPI via Python, aliada a bibliotecas especializadas como Rasterio e OpenCV, permite alcançar alta performance mesmo em máquinas com recursos limitados
+## 10.Conclusão
+Este projeto demonstrou como o uso combinado de processamento paralelo com MPI e técnicas eficientes de manipulação de imagens pode acelerar significativamente o tratamento de grandes arquivos TIFF de satélite. A abordagem adotada, que divide a imagem em blocos para processamento distribuído, permite o aproveitamento completo dos recursos computacionais disponíveis, mesmo em ambientes com máquinas modestas. A escolha por uma segmentação simples baseada em limiarização, aliada à leitura seletiva por janelas (windowing) com Rasterio, garantiu baixo consumo de memória e alta escalabilidade do sistema. A redução binária distribuída para a agregação final dos blocos processados evidenciou uma solução robusta e eficiente para montagem da imagem segmentada. Além de que utilização de MPI via Python, aliada a bibliotecas especializadas como Rasterio e OpenCV, permite alcançar alta performance mesmo em máquinas com recursos limitados. Assim, o projeto reforça a importância da combinação entre paralelismo, otimização de recursos e algoritmos adequados para aplicações de análise de imagens em larga escala, contribuindo para o avanço de técnicas em geoprocessamento e sensoriamento remoto.
+ 
 
