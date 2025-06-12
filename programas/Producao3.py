@@ -62,19 +62,11 @@ def processar_linhas_img(img_largura, banda_img, caminho_tif, altura_total, past
 
 def reduzir_blocos_em_imagem_final_mpi(lista_blocos, caminho_saida_final):
     """
-    Cada rank envia seus blocos como (bloco_id, imagem_numpy). A imagem final é montada no rank 0 com ordem global correta.
+    Cada rank envia seus caminhos de blocos [(id, caminho)].
+    Apenas o rank 0 carrega os arquivos e monta a imagem final.
     """
-    blocos_ordenados = []
+    blocos_ordenados = lista_blocos  # já contém (bloco_id, caminho)
 
-    # Carrega os blocos em memória com seus respectivos IDs
-    for bloco_id, caminho_img in lista_blocos:
-        img = cv2.imread(caminho_img, cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            print(f"[Rank {rank}] Erro ao carregar {caminho_img}")
-            continue
-        blocos_ordenados.append((bloco_id, img))
-
-    # Etapa de redução binária
     etapa = 1
     while etapa < size:
         parceiro = rank ^ etapa
@@ -83,18 +75,26 @@ def reduzir_blocos_em_imagem_final_mpi(lista_blocos, caminho_saida_final):
             continue
 
         if rank < parceiro:
-            # Recebe lista de blocos do parceiro
+            # Recebe lista de caminhos do parceiro
             recv_data = comm.recv(source=parceiro, tag=100 + etapa)
             blocos_ordenados.extend(recv_data)
         else:
-            # Envia lista para o parceiro
+            # Envia caminhos e finaliza
             comm.send(blocos_ordenados, dest=parceiro, tag=100 + etapa)
-            return  # após envio, o processo termina
+            return
         etapa *= 2
 
-    # Rank 0 junta tudo
-    blocos_ordenados.sort(key=lambda x: x[0])  # Ordena globalmente por bloco_id
-    imagem_final = np.vstack([img for _, img in blocos_ordenados])
+    # Apenas rank 0 chega aqui
+    blocos_ordenados.sort(key=lambda x: x[0])  # Ordena por bloco_id
+    imagens = []
+    for bloco_id, caminho_img in blocos_ordenados:
+        img = cv2.imread(caminho_img, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            print(f"[Rank 0] Falha ao carregar {caminho_img}")
+            continue
+        imagens.append(img)
+
+    imagem_final = np.vstack(imagens)
     cv2.imwrite(caminho_saida_final, imagem_final)
     print(f"[Rank 0] Imagem final salva em: {caminho_saida_final}")
 
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    caminho_tif = os.path.join(os.getcwd(), "..", "imagens_satelites", "img_satelite2.tif")
+    caminho_tif = os.path.join(os.getcwd(), "..", "imagens_satelites", "imagem1_2.tif")
     #caminho_tif = os.path.join(os.getcwd(), "..", "imagens_convertidas_tif", "imagem1.tif")
     caminho_saida = os.path.join(os.getcwd(), "..", "imagens_processadas", "imagem_final_blocos_binary_inv.png")
     pasta_blocos = os.path.join(os.getcwd(), "..", "blocos_tmp")
