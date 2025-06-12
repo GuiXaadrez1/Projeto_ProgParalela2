@@ -80,6 +80,9 @@ Python: escolhida pela ampla disponibilidade de bibliotecas de processamento de 
 - mpi4py: Comunicação entre processos MPI em Python
 - gc: Liberação explícita de memória para evitar acúmulo excessivo de objetos grandes
 
+### 3.3. Link do Drive com as Imagens de Sátelite
+https://drive.google.com/drive/folders/1v37kY_IqCXy3aOPpUgIfEd7DnQJSroXj 
+
 ## 4. Como funciona o programa?
 
 ### Fluxo de Execução:
@@ -104,131 +107,40 @@ Python: escolhida pela ampla disponibilidade de bibliotecas de processamento de 
 
 
 
-## 5. Avaliação de Otimização
-### 5.1. Anotação dos Testes de tempo de execução - Producao1.py
-|RANKS  | TEMPOS(s) |  SPEEDUP  | EFICIêNCIA |
-|-------|-----------|-----------|------------|
-|2      | 30.39     | 0.94      |   46.0     |
-|4      | 30.57     |  0.93     |  23.3      |
-|5      | 32.13     |  0.89     |   17.      |
-|6      | 30.30     |  0.94     |   15.6     |
-|7      | 30.77     |  0.93     |   13.3     |
-|8      | 30.89     |  0.92     |   11.5     |
-|9      | 30.18     |  0.94     |   10.5     |
-|10     | 30.17     |  0.95     |    9.5     |
-|11     | 30.34     |  0.94     |    8.6     |
-|12     | 29.37     |  0.97     |    8.1     |  
-|13     | 29.84     |  0.96     |    7.4     |
-|14     | 29.65     |  0.96     |    6.8     |
-|15     | 29.94     |  0.95     |    6.3     |
-|16     | 30.12     |  0.95     |    5.9     |
-|17     | 28.69     |  0.99     |    5.8     |
-|18     | 30.17     |  0.95     |    5.3     |
-|19     | 29.33     |  0.97     |    5.1     |
-|20     | 28.36     |  1.01     |    5.0     |
-|21     | 30.69     |  0.93     |    4.4     |
-|22     | 29.36     |  0.97     |    4.4     |
-|23     | 32.23     |  0.88     |    3.8     |
-|24     | 30.68     |  0.93     |    3.9     |
-|25     | 31.32     |  0.91     |    3.6     |
+## 5. Análise Crítica das Soluções Implementadas 
+### 5.1. Primeira Versão - Envio direto ao Mestre
+Na primeira versão, cada processo responsável por um bloco aplicava a segmentação (conversão para escala de cinza e limiarização simples) e enviava o resultado diretamente para o processo mestre (rank 0), que por sua vez reunia todos os blocos e montava a imagem final em memória. Essa abordagem funcionou corretamente, porém apresentou resultados de desempenho insatisfatórios. Embora o paralelismo estivesse tecnicamente correto, a execução serial do mesmo código se mostrou mais eficiente. O principal motivo para isso foi o overhead de comunicação MPI. A constante troca de mensagens entre os processos e o mestre — enviando e recebendo dados de imagem — acabou consumindo mais tempo do que o ganho esperado com o paralelismo. Além disso, o processamento realizado em cada bloco era muito simples, o que não justificava o uso de paralelismo distribuído, já que os custos fixos de inicialização e comunicação acabavam sendo mais altos que o tempo do próprio processamento. Outro problema crítico foi a concentração do trabalho final no processo mestre, que ficou encarregado de reunir todos os blocos e construir a imagem. Esse modelo centralizado criou um ponto de estrangulamento, reduzindo a escalabilidade e anulando os ganhos obtidos com múltiplos processos.
 
-### Gráfico de SpeedUp e Eficiência
-![Speedup e Eficiência](doc/grafico.jpeg)
+### 5.2. Segunda Versão - Escrita de blocos em disco
+Na tentativa de otimizar a coleta dos blocos e diminuir o custo de comunicação entre processos, uma segunda abordagem foi desenvolvida. Nesta versão, cada processo passou a salvar os blocos processados como imagens individuais em disco. O processo mestre (rank 0), ao final da execução, lia esses blocos e os empilhava verticalmente para formar a imagem final Apesar de parecer mais leve em termos de comunicação MPI, essa abordagem introduziu um novo gargalo: o excesso de operações de leitura e escrita em disco. Com dezenas ou centenas de blocos sendo escritos e lidos, o sistema de arquivos se tornou o principal limitador de desempenho. Além disso, o tempo total continuou superior à versão serial, confirmando que o paralelismo, nesta aplicação, não foi eficiente nem justificável. Adicionalmente, observamos que após aproximadamente 6 ou 7 processos, o desempenho não melhorava mais, mesmo aumentando o número de processos MPI. Isso indicou uma saturação do paralelismo, típica de aplicações onde o custo de I/O ou comunicação supera o custo computacional real.
 
+### Conclusão
+Ambas as tentativas de paralelização com MPI apresentaram resultados inferiores à execução sequencial, devido a fatores como:
+- Sobrecarga de comunicação entre processos;
+- Baixa complexidade computacional por bloco;
+- Gargalo de I/O com múltiplos acessos concorrentes ao disco;
+- Concentração de tarefas no processo mestre;
+- Saturação de desempenho com o aumento do número de processos.
 
-### 5.2. Quadro de comparação
-|TIPO DE EXECUÇÃO                 | TEMPO(s)        | OBSERVAÇÕES                       |
-|---------------------------------|-----------------|-----------------------------------|
-|Serial (1 rank)                  |28.51            |  Tempo mais baixo                 |
-|Paralelizado (2-25 ranks)        |28.36-32.23      |  Tempos > 30s, ficou mais lento   |
-|Melhor tempo paralelo (20 ranks) |28.36            |  Ganho irrelevante                |
-|Pior tempo paralelo (23 ranks)   |32.23            |  3.72s mais lento que o serial    |
+Em resumo, os testes mostraram que a paralelização com MPI, da forma como foi aplicada, não trouxe ganhos práticos de desempenho e acabou tornando a execução mais lenta e custosa. Para obter resultados mais eficazes, seria necessário aumentar a complexidade do processamento, otimizar o gerenciamento de I/O, e repensar a estratégia de paralelismo, possivelmente adotando abordagens baseadas em memória compartilhada (como multithreading) ou frameworks de alto nível mais eficientes para tarefas I/O-intensivas.
 
-### 5.3. Conclusão
-O tempo de execução serial foi mais eficiente do que o tempo paralelizado com MPI, ou seja, a estratégia usada para paralelização não está sendo vantajosa para a resolução do problema. 
-
-
-## 6.Anotação dos Testes de tempo de execução - Producao2.py
-### 6.1. Resumo dos tempos de execução
-
-|Execução       |   Tempo(s)  |
-|---------------|-------------|
-|Serial (1 rank)|    38       |
-|2 ranks        |    27       |
-|3 ranks        |    24       |
-|4 ranks        |    22       |
-|5 ranks        |    22       |
-|6 ranks        |    21       |
-|7 ranks        |    20       |
-|8-20 ranks     |    20       |
-
-
-### 6.2. Tabela de SpeedUp e Eficiência
-| Ranks | Tempo (s) | Speedup | Eficiência (%) |
-| ----- | --------- | ------- | -------------- |
-| 1     | 38        | 1.00    | 100.0          |
-| 2     | 27        | 1.41    | 70.4           |
-| 3     | 24        | 1.58    | 52.7           |
-| 4     | 22        | 1.73    | 43.3           |
-| 5     | 22        | 1.73    | 34.6           |
-| 6     | 21        | 1.81    | 30.2           |
-| 7     | 20        | 1.90    | 27.1           |
-| 8     | 20        | 1.90    | 23.8           |
-| 9     | 20        | 1.90    | 21.1           |
-| 10    | 20        | 1.90    | 19.0           |
-| 11    | 20        | 1.90    | 17.3           |
-| 12    | 20        | 1.90    | 15.8           |
-| 13    | 20        | 1.90    | 14.6           |
-| 14    | 20        | 1.90    | 13.6           |
-| 15    | 20        | 1.90    | 12.7           |
-| 16    | 20        | 1.90    | 11.9           |
-| 17    | 20        | 1.90    | 11.2           |
-| 18    | 20        | 1.90    | 10.6           |
-| 19    | 20        | 1.90    | 10.0           |
-| 20    | 20        | 1.90    | 9.5            |
-
-
-### Gráfico de SpeedUp e Eficiência
-![Speedup e Eficiência](doc/grafico1.jpeg)
-
-
-### 6.3. Análise de Desempenho
-- Melhoria inicial constante
-    - Observa-se uma redução significativa no tempo de execução ao aumentar o número de processos de 1 para 4 ranks.
-    - De 38s (serial) para 22s com 4 ranks - uma melhora de aproximadamente 42%
-    - Entre 4 e 6 ranks, os ganhos continuam, porém em ritmo menor
-
-- Saturação do Desempenho a partir de 7 ranks
-    - A partir de 7 processos, o tempo estabiliza em 20 segundos, sem apresentar melhorias adicionais até 20 ranks
-    - Isso indica que o limite útil do paralelismo foi atingido
-    - Continuar aumentando o número de processos pode inclusive gerar overhead, sem ganho de performance.
-
-- Causas Prováveis de Saturação
-    - Overhead de comunicação MPI: a troca de mensagens entre muitos processos pode impactar negativamente o tempo total
-    - Gargalo de I/O: vários processos acessando simultaneamente o mesmo arquivo grande gera concorrência e limita o desempenho
-    - Tamanho dos blocos: com muitos processos, cada um recebe uma fração menor dos dados, e o tempo gasto com leitura, escrita e sincronização passa a dominar a execução.
-
-### 6.4. Conclusão Prática
-O código treino2_1.py apresenta boa escalabilidade até cerca de 6 ou 7 processos, com ganhos significativos no tempo de execução
-Acima de 7 ranks, o desempenho se estabiliza, o que é típico em aplicações com gargalo de I/O ou com pouca carga computacional por processo
-Configuração recomendada: utilizar entre 6 e 8 ranks, pois proporciona melhor equilíbrio entre desempenho e uso eficiente de recursos computacionais.
 
 ## 7. Anotação dos Testes de tempo de execução - Producao3.py (Código Final)
 ## Tempos Médios de Execução
-| Número de Ranks | Tempos (s) — Execuções                                               | Média (s) |
-| --------------- | -------------------------------------------------------------------- | --------- |
-| 1 (Serial)      | 38.13, 38.48, 38.11, 38.00, 37.84, 37.93, 38.48, 36.06, 38.67, 37.81 | **37.95** |
-| 2               | 25.23, 24.66, 24.67, 24.62, 24.48, 25.66, 24.81, 24.79, 24.95, 24.51 | **24.84** |
-| 3               | 20.51, 20.44, 20.71, 19.97, 20.24, 20.13, 20.26, 20.29, 20.22, 21.03 | **20.38** |
-| 4               | 19.29, 18.68, 19.63, 18.78, 19.24, 20.17, 19.83, 19.23, 19.49, 18.78 | **19.31** |
-| 5               | 17.75, 17.91, 17.46, 17.95, 17.28, 17.63, 17.53, 18.02, 18.16, 17.84 | **17.55** |
-| 6               | 17.03, 16.94, 16.77, 17.19, 17.35, 17.19, 17.43, 17.49, 17.27, 17.32 | **17.30** |
-| 7               | 16.75, 16.64, 16.99, 17.07, 16.50, 16.78, 17.41, 17.07, 16.94, 17.15 | **16.93** |
-| 8               | 17.16, 19.75, 17.26, 17.30, 18.42, 17.11, 16.98, 16.85, 17.70, 18.02 | **17.56** |
-| 10              | 17.28, 17.40, 29.25, 23.83, 17.17, 17.65, 16.76, 17.53, 17.06, 17.48 | **17.34** |
-| 15              | 18.29, 17.72, 17.81, 18.26, 17.49, 17.45, 17.56, 17.98, 17.51, 17.64 | **17.57** |
-| 18              | 18.53, 18.11, 18.70, 17.92, 18.18, 17.76, 18.19, 19.02, 18.00, 17.59 | **17.90** |
-| 20              | 18.41, 17.01, 17.88, 18.18, 17.57, 17.62, 18.11, 17.80, 17.79, 18.25 | **17.56** |
+| Número de Ranks |  Média (s) |
+| --------------- |  --------- |
+| 1 (Serial)      |  **37.95** |
+| 2               |  **24.84** |
+| 3               |  **20.38** |
+| 4               |  **19.31** |
+| 5               | **17.55**  |
+| 6               |  **17.30** |
+| 7               |  **16.93** |
+| 8               |  **17.56** |
+| 10              |  **17.34** |
+| 15              |  **17.57** |
+| 18              |  **17.90** |
+| 20              | **17.56**  |
 
 ### 7.1. Tabela de SpeedUp e Eficiência
 | Ranks | Tempo Médio (s) | Speedup | Eficiência (%) |
