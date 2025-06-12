@@ -1,95 +1,88 @@
 # Projeto_ProgParalela
 ## Identificador paralelo de estradas em imagens de satélite
-## 1.Introdução 
-Este projeto tem como objetivo principal realizar o processamento eficiente de imagens geográficas ou científicas no formato .tif com quatro canais (RGBA), convertendo-as para imagens em escala de cinza (Grayscale), utilizando as extensões .jpeg ou .png. A solução implementa paralelismo com MPI (Message Passing Interface) para acelerar o processamento em ambientes com múltiplos núcleos ou máquinas, buscando otimização de desempenho e economia de recursos computacionais.
+## 1. Introdução
+Este projeto tem como objetivo o processamento paralelo de imagens geoespaciais no formato .tif, por meio do uso da biblioteca MPI (Message Passing Interface). A solução foi projetada para funcionar em ambientes distribuídos ou com múltiplos núcleos, visando otimizar o tempo de execução e o uso de recursos computacionais. A imagem de entrada é dividida em blocos horizontais, que são distribuídos entre os diferentes processos MPI. Cada processo realiza a leitura parcial da imagem, converte-a para escala de cinza (caso tenha três ou mais bandas), aplica uma limiarização binária inversa para realçar bordas e salva o resultado individualmente. Por fim, os blocos processados são reunidos utilizando uma redução distribuída (redução binária entre os ranks), reconstruindo a imagem final no processo de rank 0. O resultado final é salvo no formato .png, contendo as bordas detectadas em toda a imagem original. O código foi desenvolvido com foco em desempenho e escalabilidade, sendo ideal para processar imagens satelitais ou científicas de grande porte, aproveitando o poder do processamento paralelo com MPI.
 
-## 2.Desafios da Solução
+## 2. Desafios da Solução
+
 ### 2.1. Conversão de arquivo .tif para GrayScale
-O formato .tif com quatro canais representa imagens com componentes Red, Green, Blue e Alpha (transparência). Para convertê-la para uma imagem de duas dimensões em escala de cinza, é necessário aplicar uma transformação que reduza os canais RGB em um único canal de intensidade.
 
-Solução adotada:
-A função processar_linhas_img() converte os dados RGB (bandas 1 a 3) para escala de cinza utilizando OpenCV.
-Em seguida, é aplicada uma limiarização binária inversa (cv2.THRESH_BINARY_INV) com valor de corte 120.
-O objetivo é destacar possíveis traços como estradas, realçando áreas escuras na imagem.
-A saída de cada processo MPI é um conjunto de blocos salvos como imagens .png.
+- Desafio:
+  O formato .tif com múltiplos canais representa imagens com componentes Red, Green, Blue e possivelmente Alpha (transparência). Para convertê-la para uma imagem de duas dimensões em escala de cinza, é necessário aplicar uma transformação que reduza os canais RGB em um único canal de intensidade.
 
+- Solução adotada:
+  A função processar_linhas_img() converte os dados RGB (bandas 1 a 3) para escala de cinza utilizando OpenCV. Em seguida, é aplicada uma limiarização binária inversa (cv2.THRESH_BINARY_INV) com valor de corte 120. O objetivo é destacar possíveis traços como estradas, realçando áreas escuras na imagem. A saída de cada processo MPI é um conjunto de blocos salvos como imagens .png.
 
 ### 2.2. Divisão de trabalho MPI
-O uso da biblioteca MPI permite distribuir o carregamento e processamento da imagem entre vários processos. Esse modelo de paralelismo é especialmente útil para imagens de grande dimensão, otimizando tempo e uso da CPU.
 
-Solução adotada:
-O código inicializa o MPI com mpi4py, e cada processo recebe um rank.
-Solução adotada:
-A imagem é dividida em 128 blocos horizontais de mesmo tamanho, utilizando uma janela (rasterio.windows.Window) para leitura parcial.
-Cada processo MPI verifica quais blocos são de sua responsabilidade com base na fórmula bloco_id % size == rank.
-Com isso, evita-se comunicação excessiva entre processos e cada rank trabalha de forma autônoma.
+- Desafio:
+  O uso da biblioteca MPI permite distribuir o carregamento e processamento da imagem entre vários processos. Esse modelo de paralelismo é especialmente útil para imagens de grande dimensão, otimizando tempo e uso da CPU.
 
-
+- Solução adotada:
+  O código inicializa o MPI com mpi4py, e cada processo recebe um rank. A imagem é dividida em 128 blocos horizontais de mesmo tamanho, utilizando uma janela (rasterio.windows.Window) para leitura parcial. Cada processo MPI verifica quais blocos são de sua responsabilidade com base na fórmula bloco_id % size == rank. Com isso, evita-se comunicação excessiva entre processos e cada rank trabalha de forma autônoma.
 
 ### 2.3. Nível de Complexidade
-A solução exige domínio sobre:
-Processamento de imagens multidimensionais
-Programação paralela com MPI
-Sincronização de processos
-Manipulação eficiente de arquivos grandes
+
+- Desafio:
+  A solução exige domínio sobre:
+    - Processamento de imagens multidimensionais
+    - Programação paralela com MPI
+    - Sincronização de processos
+    - Manipulação eficiente de arquivos grandes
 A combinação dessas áreas torna o projeto desafiador, demandando planejamento e conhecimento técnico sólido.
 
 Solução adotada:
-O código lida com vários níveis de complexidade, como:
-Leitura de arquivos grandes com múltiplos canais.
-Divisão eficiente da imagem entre processos MPI.
-Integração com um modelo de machine learning da web (TensorFlow Hub).
-Tratamento de erros na leitura com try/except.
-Coleta e ordenação dos blocos processados para reconstrução da imagem final.
-
+  O código lida com vários níveis de complexidade, como:
+    - Leitura de arquivos grandes com múltiplos canais
+    - Divisão eficiente da imagem entre processos MPI
+    - Tratamento de erros na leitura com try/except
+    - Coleta e ordenação dos blocos processados para reconstrução da imagem final
 
 ### 2.4. Otimização do uso de memória RAM
-Durante o processamento de grandes imagens, é fundamental evitar o carregamento de toda a imagem na memória de uma só vez, pois isso pode causar estouro de memória (Out of Memory).
 
-Solução adotada:
-A imagem não é carregada completamente na memória.
-Em vez disso, são usadas janelas de leitura (rasterio.windows.Window) para ler apenas o bloco correspondente às linhas atribuídas ao processo.
-Isso permite um processamento em partes, ideal para imagens grandes.
-Além disso, o uso de np.array_split() com blocos menores (8 vezes o número de processos) evita sobrecarga de RAM mesmo em sistemas com menos recursos.
+- Desafio:
+  Durante o processamento de grandes imagens, é fundamental evitar o carregamento de toda a imagem na memória de uma só vez, pois isso pode causar estouro de memória (Out of Memory).
+
+- Solução adotada:
+  A imagem não é carregada completamente na memória. Em vez disso, são usadas janelas de leitura (rasterio.windows.Window) para ler apenas o bloco correspondente às linhas atribuídas ao processo. Isso permite um processamento em partes, ideal para imagens grandes. Além disso, o uso de blocos menores (128 blocos fixos) evita sobrecarga de RAM mesmo em sistemas com menos recursos.
 
 ### 2.5. Entendimento do problema de segmentação
-Em algumas aplicações, além da conversão para escala de cinza, é necessário segmentar áreas de interesse na imagem. Isso pode ser feito com:
-Espaço de cor HSV: separa cor, saturação e intensidade, útil para destacar regiões específicas.
-Limiarização (Thresholding): converte a imagem em preto e branco com base em um valor de corte, útil para detecção de bordas ou regiões específicas.
 
-Solução adotada:
-A segmentação é realizada utilizando a técnica de limiarização binária inversa (cv2.THRESH_BINARY_INV), aplicada à imagem em escala de cinza.
-Esse método é leve, rápido e eficaz para destacar bordas e áreas relevantes como estradas em imagens de satélite.
-Não há uso de aprendizado de máquina na versão final.
+- Desafio:
+  Em algumas aplicações, além da conversão para escala de cinza, é necessário segmentar áreas de interesse na imagem. Isso pode ser feito com:
+    - Espaço de cor HSV: separa cor, saturação e intensidade, úil para destacar regiões específicas.
+    - Limiarização (Thresholding): converte a imagem em preto e branco com base em um valor de corte, úil para detecção de bordas ou regiões específicas.
+
+- Solução adotada:
+  A segmentação é realizada utilizando a técnica de limiarização binária inversa (cv2.THRESH_BINARY_INV), aplicada à imagem em escala de cinza. Esse método é leve, rápido e eficaz para destacar bordas e áreas relevantes como estradas em imagens de satélite. 
 
 ### 2.6. Redução Distribuída da Imagem Final
-Desafio:
-Em sistemas distribuídos com MPI, a junção dos resultados processados por diferentes ranks em um único arquivo final é um desafio importante.
 
-Solução adotada:
-Cada processo salva os blocos de imagem que processou localmente.
-Após o processamento, cada rank envia seus blocos (id + imagem) para outros ranks seguindo uma estratégia de redução binária.
-O rank 0 realiza a concatenação vertical (np.vstack) dos blocos em ordem crescente de ID e salva a imagem final com cv2.imwrite.
+- Desafio:
+  Em sistemas distribuídos com MPI, a junção dos resultados processados por diferentes ranks em um único arquivo final é um desafio importante.
 
+- Solução adotada:
+  Cada processo salva os blocos de imagem que processou localmente. Após o processamento, cada rank envia seus blocos (id + imagem) para outros ranks seguindo uma estratégia de redução binária. O rank 0 realiza a concatenação vertical (np.vstack) dos blocos em ordem crescente de ID e salva a imagem final com cv2.imwrite.
 
+## 3. Ferramentas utilizadas
 
-## 3.Ferramentas utilizadas
 ### 3.1. Linguagem
+
 Python: escolhida pela ampla disponibilidade de bibliotecas de processamento de imagem, facilidade de uso e compatibilidade com bibliotecas MPI via mpi4py.
 
 ### 3.2. Bibliotecas
 
-rasterio: Leitura de imagens .tif, especialmente com dados georreferenciados
-opencv (cv2): Manipulação de imagens, conversão de formatos, limiarização
-numpy: Operações matriciais de alto desempenho
-os: Navegação e manipulação de arquivos e diretórios
-time: Medição de tempo de execução
-matplotlib.pyplot: Visualização e salvamento de imagens para depuração
-mpi4py: Comunicação entre processos MPI em python
+- rasterio: Leitura de imagens .tif, especialmente com dados georreferenciados
+- opencv (cv2): Manipulação de imagens, conversão de formatos, limiarização
+- numpy: Operações matriciais de alto desempenho
+- os: Navegação e manipulação de arquivos e diretórios
+- time: Medição de tempo de execução
+- mpi4py: Comunicação entre processos MPI em Python
+- gc: Liberação explícita de memória para evitar acúmulo excessivo de objetos grandes
 
+## 4. Como funciona o programa?
 
-## 4.Como funciona o programa?
-Fluxo de Execução:
+### Fluxo de Execução:
 
 1. Inicialização com MPI:
    O programa inicia com mpi4py, detecta o número de processos e atribui um rank a cada um.
@@ -99,9 +92,9 @@ Fluxo de Execução:
 
 3. Processamento paralelo:
    Cada processo MPI:
-   - Converte sua parte para escala de cinza com OpenCV.
-   - Aplica limiarização binária inversa.
-   - Salva os blocos como imagens .png.
+    - Converte sua parte para escala de cinza com OpenCV (se aplicável).
+    - Aplica limiarização binária inversa.
+    - Salva os blocos como imagens .png.
 
 4. Redução distribuída:
    Utilizando uma estratégia de redução binária entre pares (rank ^ etapa), todos os blocos processados são enviados e reunidos no rank 0.
@@ -154,8 +147,6 @@ Fluxo de Execução:
 ### 5.3. Conclusão
 O tempo de execução serial foi mais eficiente do que o tempo paralelizado com MPI, ou seja, a estratégia usada para paralelização não está sendo vantajosa para a resolução do problema. 
 
-Localização do código: ./Treino2_1/Treino2_1.py
-Tamanho aproximado: 2,7GB
 
 ## 6.Anotação dos Testes de tempo de execução - Producao2.py
 ### 6.1. Resumo dos tempos de execução
@@ -202,20 +193,20 @@ Tamanho aproximado: 2,7GB
 
 
 ### 6.3. Análise de Desempenho
-Melhoria inicial constante
-Observa-se uma redução significativa no tempo de execução ao aumentar o número de processos de 1 para 4 ranks.
-De 38s (serial) para 22s com 4 ranks - uma melhora de aproximadamente 42%
-Entre 4 e 6 ranks, os ganhos continuam, porém em ritmo menor
+- Melhoria inicial constante
+    - Observa-se uma redução significativa no tempo de execução ao aumentar o número de processos de 1 para 4 ranks.
+    - De 38s (serial) para 22s com 4 ranks - uma melhora de aproximadamente 42%
+    - Entre 4 e 6 ranks, os ganhos continuam, porém em ritmo menor
 
-Saturação do Desempenho a partir de 7 ranks
-A partir de 7 processos, o tempo estabiliza em 20 segundos, sem apresentar melhorias adicionais até 20 ranks
-Isso indica que o limite útil do paralelismo foi atingido
-Continuar aumentando o número de processos pode inclusive gerar overhead, sem ganho de performance.
+- Saturação do Desempenho a partir de 7 ranks
+    - A partir de 7 processos, o tempo estabiliza em 20 segundos, sem apresentar melhorias adicionais até 20 ranks
+    - Isso indica que o limite útil do paralelismo foi atingido
+    - Continuar aumentando o número de processos pode inclusive gerar overhead, sem ganho de performance.
 
-Causas Prováveis de Saturação
-Overhead de comunicação MPI: a troca de mensagens entre muitos processos pode impactar negativamente o tempo total
-Gargalo de I/O: vários processos acessando simultaneamente o mesmo arquivo grande gera concorrência e limita o desempenho
-Tamanho dos blocos: com muitos processos, cada um recebe uma fração menor dos dados, e o tempo gasto com leitura, escrita e sincronização passa a dominar a execução.
+- Causas Prováveis de Saturação
+    - Overhead de comunicação MPI: a troca de mensagens entre muitos processos pode impactar negativamente o tempo total
+    - Gargalo de I/O: vários processos acessando simultaneamente o mesmo arquivo grande gera concorrência e limita o desempenho
+    - Tamanho dos blocos: com muitos processos, cada um recebe uma fração menor dos dados, e o tempo gasto com leitura, escrita e sincronização passa a dominar a execução.
 
 ### 6.4. Conclusão Prática
 O código treino2_1.py apresenta boa escalabilidade até cerca de 6 ou 7 processos, com ganhos significativos no tempo de execução
