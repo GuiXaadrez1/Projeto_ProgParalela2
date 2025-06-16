@@ -1,0 +1,2 @@
+imagens_processadas/imagem_final_blocos_binary_inv.png filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
