@@ -3,6 +3,9 @@
 ## 1. Introdução
 Este projeto tem como objetivo o processamento paralelo de imagens geoespaciais no formato .tif, por meio do uso da biblioteca MPI (Message Passing Interface). A solução foi projetada para funcionar em ambientes distribuídos ou com múltiplos núcleos, visando otimizar o tempo de execução e o uso de recursos computacionais. A imagem de entrada é dividida em blocos horizontais, que são distribuídos entre os diferentes processos MPI. Cada processo realiza a leitura parcial da imagem, converte-a para escala de cinza (caso tenha três ou mais bandas), aplica uma limiarização binária inversa para realçar bordas e salva o resultado individualmente. Por fim, os blocos processados são reunidos utilizando uma redução distribuída (redução binária entre os ranks), reconstruindo a imagem final no processo de rank 0. O resultado final é salvo no formato .png, contendo as bordas detectadas em toda a imagem original. O código foi desenvolvido com foco em desempenho e escalabilidade, sendo ideal para processar imagens satelitais ou científicas de grande porte, aproveitando o poder do processamento paralelo com MPI.
 
+### 1.1. Objetivo
+Avaliar o desempenho do programa Producao.py ao processar um arquivo .tif de 12 GB (junção de uma mesma imagem várias vezes para gerar uma desse tamanho), utilizando execução serial e paralela com MPI. O objetivo é determinar o tempo médio, speedup e eficiência para diferentes quantidades de ranks, identificando o ponto ótimo entre desempenho e custo computacional.
+
 ## 2. Desafios da Solução
 
 ### 2.1. Conversão de arquivo .tif para GrayScale
@@ -103,8 +106,9 @@ https://drive.google.com/drive/folders/1v37kY_IqCXy3aOPpUgIfEd7DnQJSroXj
    Utilizando uma estratégia de redução binária entre pares (rank ^ etapa), todos os blocos processados são enviados e reunidos no rank 0.
 
 5. Montagem da imagem final:
-   O rank 0 ordena os blocos por ID, concatena verticalmente e salva a imagem final com OpenCV.
-
+   O rank 0 ordena os blocos por ID, concatena verticalmente e salva a imagem final com OpenCV
+   - Imagem Original X Imagem Final 
+![Imagens](doc/imagem-final.jpeg)
 
 
 ## 5. Análise Crítica das Soluções Implementadas 
@@ -114,52 +118,31 @@ Na primeira versão, cada processo responsável por um bloco aplicava a segmenta
 ### 5.2. Segunda Versão - Escrita de blocos em disco
 Na tentativa de otimizar a coleta dos blocos e diminuir o custo de comunicação entre processos, uma segunda abordagem foi desenvolvida. Nesta versão, cada processo passou a salvar os blocos processados como imagens individuais em disco. O processo mestre (rank 0), ao final da execução, lia esses blocos e os empilhava verticalmente para formar a imagem final Apesar de parecer mais leve em termos de comunicação MPI, essa abordagem introduziu um novo gargalo: o excesso de operações de leitura e escrita em disco. Com dezenas ou centenas de blocos sendo escritos e lidos, o sistema de arquivos se tornou o principal limitador de desempenho. Além disso, o tempo total continuou superior à versão serial, confirmando que o paralelismo, nesta aplicação, não foi eficiente nem justificável. Adicionalmente, observamos que após aproximadamente 6 ou 7 processos, o desempenho não melhorava mais, mesmo aumentando o número de processos MPI. Isso indicou uma saturação do paralelismo, típica de aplicações onde o custo de I/O ou comunicação supera o custo computacional real.
 
+### 5.3. Versão Final - Paralelização com MPI otimizada via Escrita de blocos + Redução binária
+Na terceira versão do projeto, mantivemos a abordagem de salvar os blocos processados em disco, mas introduzimos uma técnica mais robusta de redução distribuída binária entre os ranks MPI, com o objetivo de melhorar a escalabilidade e diminuir a sobrecarga de comunicação. Cada processo continua responsável por processar uma fração da imagem original .tif (dividida em 128 blocos horizontais). Após o processamento, os blocos são salvos em disco e organizados por cada processo. Ao final, é realizada uma coleta hierárquica (usando XOR entre ranks, estratégia binária), o que evita concentração de tráfego no rank 0 até os momentos finais da execução. Essa etapa reduz progressivamente os dados de todos os ranks até que o rank 0 possa reconstruir a imagem completa e salvá-la como .png.
+
 ### Conclusão
-Ambas as tentativas de paralelização com MPI apresentaram resultados inferiores à execução sequencial, devido a fatores como:
-- Sobrecarga de comunicação entre processos;
-- Baixa complexidade computacional por bloco;
-- Gargalo de I/O com múltiplos acessos concorrentes ao disco;
-- Concentração de tarefas no processo mestre;
-- Saturação de desempenho com o aumento do número de processos.
-
-Em resumo, os testes mostraram que a paralelização com MPI, da forma como foi aplicada, não trouxe ganhos práticos de desempenho e acabou tornando a execução mais lenta e custosa. Para obter resultados mais eficazes, seria necessário aumentar a complexidade do processamento, otimizar o gerenciamento de I/O, e repensar a estratégia de paralelismo, possivelmente adotando abordagens baseadas em memória compartilhada (como multithreading) ou frameworks de alto nível mais eficientes para tarefas I/O-intensivas.
-
+As duas primeiras tentativas de paralelização com MPI apresentaram desempenho inferior à execução sequencial. Isso ocorreu devido à sobrecarga de comunicação entre os processos, à baixa complexidade computacional por bloco de dados, ao gargalo de entrada e saída causado por múltiplos acessos concorrentes ao disco, à concentração excessiva de tarefas no processo mestre (rank 0) e à saturação do desempenho com o aumento do número de processos, o que evidenciou os limites da escalabilidade do modelo utilizado.
+De modo geral, os testes mostraram que, da forma como foi inicialmente aplicada, a paralelização com MPI não trouxe ganhos práticos de desempenho. Pelo contrário, tornou a execução mais lenta e custosa. Para alcançar resultados mais eficazes, seria necessário aumentar a complexidade das operações paralelizadas, otimizar o gerenciamento de entrada e saída e repensar a estratégia de paralismo adotada — considerando, por exemplo, o uso de abordagens baseadas em memória compartilhada, como multithreading, ou frameworks mais adequados a tarefas com alta demanda de I/O.
+Em contrapartida, a versão final da implementação representou um avanço significativo em relação às anteriores. Ela conseguiu combinar uma divisão equilibrada das tarefas entre os processos, o uso eficiente de blocos com janelas de processamento (windowing), uma escrita controlada em disco para evitar conflitos de I/O e uma comunicação escalável entre os processos por meio de redução binária. Embora ainda dependa da escrita em disco, a adoção de uma redução hierárquica entre os ranks evitou a sobrecarga central no processo mestre e proporcionou uma melhora na escalabilidade horizontal. Dessa forma, a execução tornou-se mais viável e eficiente, especialmente em ambientes com 4, 8 ou até 16 núcleos de processamento
 
 ## 7. Anotação dos Testes de tempo de execução - Producao3.py (Código Final)
-## Tempos Médios de Execução
-| Número de Ranks |  Média (s) |
-| --------------- |  --------- |
-| 1 (Serial)      |  **37.95** |
-| 2               |  **24.84** |
-| 3               |  **20.38** |
-| 4               |  **19.31** |
-| 5               | **17.55**  |
-| 6               |  **17.30** |
-| 7               |  **16.93** |
-| 8               |  **17.56** |
-| 10              |  **17.34** |
-| 15              |  **17.57** |
-| 18              |  **17.90** |
-| 20              | **17.56**  |
 
 ### 7.1. Tabela de SpeedUp e Eficiência
 | Ranks | Tempo Médio (s) | Speedup | Eficiência (%) |
-| ----- | --------------- | ------- | -------------- |
-| 1     | 37.95           | 1.00    | 100.00         |
-| 2     | 24.84           | 1.53    | 76.50          |
-| 3     | 20.38           | 1.86    | 62.00          |
-| 4     | 19.31           | 1.96    | 49.00          |
-| 5     | 17.55           | 2.16    | 43.20          |
-| 6     | 17.30           | 2.19    | 36.50          |
-| 7     | 16.93           | 2.24    | 32.00          |
-| 8     | 17.56           | 2.16    | 27.00          |
-| 10    | 17.34           | 2.19    | 21.90          |
-| 15    | 17.57           | 2.16    | 14.40          |
-| 18    | 17.90           | 2.12    | 11.78          |
-| 20    | 17.56           | 2.16    | 10.80          |
+|-------|------------------|---------|----------------|
+| 1     | 90.62            | 1.00    | 100.00         |
+| 2     | 71.59            | 1.27    | 63.55          |
+| 4     | 59.97            | 1.51    | 37.75          |
+| 7     | 53.24            | 1.70    | 24.32          |
+| 8     | 46.92            | 1.93    | 24.12          |
+| 10    | 47.25            | 1.92    | 19.20          |
+| 15    | 56.49            | 1.60    | 10.66          |
+| 20    | 58.81            | 1.54    | 7.70           |
+
 
 ### Gráfico de SpeedUp e Eficiência
-![Speedup e Eficiência](doc/grafico2.jpeg)
+![Speedup e Eficiência](doc/grafico-final.jpeg)
 
 ### 7.2. Análise de Desempenho
 Observações
@@ -169,18 +152,23 @@ Observações
 Análise por Faixa de Ranks
 - 1 a 4 Ranks (boa escalabilidade):
     Aceleração significativa do tempo de execução.
-    Eficiência cai de 100% para 49%.
+    Eficiência cai de 100% para 37,75%, indicando os primeiros sinais de overhead.
 
 - 5 a 8 Ranks (eficiência em queda):
-    Ganhos em tempo são pequenos.
-    Overhead começa a impactar fortemente a eficiência.
+    Ganhos marginais.
+    O tempo melhora, mas a eficiência se estabiliza abaixo de 25%.
+    Boa relação custo-benefício termina em torno de 8 ranks.
 
-- 10 a 20 Ranks (saturação):
-    Pouca ou nenhuma melhora no tempo.
-    Eficiência inferior a 15%, com desperdício de recursos.
+- 10 a 20 Ranks (saturação e retrocesso):
+    Com 10 ou mais processos, o tempo não melhora significativamente.
+    A eficiência cai para menos de 20%, indicando desperdício de recursos.
+    Com 20 ranks, a eficiência é inferior a 8%
 
 ### 7.3. Conclusão
-Os testes com o programa Producao3.py mostram que ele apresenta boa escalabilidade até 4 ou 5 processos, com redução significativa no tempo de execução. A partir desse ponto, os ganhos em desempenho se tornam marginais e a eficiência cai drasticamente, indicando desperdício de recursos. O melhor equilíbrio entre performance e custo computacional ocorre com 3 processos, com um speedup de 1,86 e eficiência de 62%. Acima de 5 processos, o tempo pouco melhora e a eficiência despenca, mostrando que a aplicação atinge seu limite prático de paralelização. Assim, recomenda-se o uso de 3 a 5 processos, conforme o objetivo for eficiência ou redução de tempo.
+Com base nos testes realizados, observou-se que o speedup aumenta à medida que se adicionam mais processos, porém esse crescimento satura rapidamente, evidenciando os limites impostos pela Lei de Amdahl — ou seja, há porções do código que não podem ser paralelizadas, restringindo o ganho total. A eficiência do sistema cai progressivamente com o aumento do número de ranks, indicando um uso menos eficaz dos recursos computacionais. Do ponto de vista técnico, o melhor custo-benefício foi obtido com 4 ranks, que proporcionaram um speedup de 1.51 com eficiência de aproximadamente 37%, representando o melhor equilíbrio entre tempo e uso de recursos. Já o melhor desempenho absoluto foi alcançado com 8 ranks, resultando no menor tempo de execução (46.92 segundos), embora com eficiência reduzida para cerca de 24%. A partir de 10 ranks, os ganhos em desempenho tornam-se mínimos ou inexistentes, com queda acentuada de eficiência, o que torna seu uso pouco vantajoso. Como recomendação prática: para balancear desempenho e economia de recursos, o ideal é usar 4 ranks; se o objetivo for reduzir o tempo de execução ao máximo, utilizar até 8 ranks pode ser justificável. Ultrapassar esse número não traz benefícios práticos e pode representar desperdício computacional. Em ambientes com restrições de CPU ou memória, o uso de 3 ou 4 ranks é o mais indicado.
+
+
+
 
 ## 8. O que mudou durante o projeto?
 - A substituição da segmentação com DeepLabV3+ por uma abordagem baseada em thresholding simples com OpenCV;
