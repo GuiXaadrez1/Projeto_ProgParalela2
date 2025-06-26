@@ -177,7 +177,7 @@ Com base nos testes realizados, observou-se que o speedup aumenta à medida que 
 - Inclusão de uma etapa de redução distribuída binária para montagem da imagem final;
 
 ## 9.Resultados Esperados
-Redução de até 80% no tempo de processamento para imagens grandes (comparado com versão sequencial)
+Redução de até 50% no tempo de processamento para imagens grandes (comparado com versão sequencial)
 Conversão precisa das imagens RGBA para Grayscale
 Segmentação clara (quando aplicada)
 Baixo uso de memória RAM (evitando crashes)
